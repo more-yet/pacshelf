@@ -42,8 +42,6 @@ jobs:
 
           pacman -Syu --noconfirm --needed \
             base-devel \
-            devtools \
-            git \
             namcap \
             shellcheck \
             sudo
@@ -81,8 +79,6 @@ jobs:
             cd '${GITHUB_WORKSPACE}'
 
             for package_dir in packages/*; do
-              [[ -d \"\${package_dir}\" ]] || continue
-
               package=\"\${package_dir##*/}\"
 
               printf '\n==> PacShelf CI: %s\n' \"\${package}\"

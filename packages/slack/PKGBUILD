@@ -2,7 +2,7 @@
 
 pkgname=slack
 pkgver=4.51.191
-pkgrel=2
+pkgrel=3
 
 pkgdesc='Desktop client for team communication and collaboration'
 arch=('x86_64')
@@ -15,6 +15,7 @@ depends=(
     'gtk3'
     'libappindicator'
     'libnotify'
+    'libsecret'
     'libxkbfile'
     'libxss'
     'libxtst'
@@ -23,9 +24,12 @@ depends=(
     'xdg-utils'
 )
 
+optdepends=(
+    'org.freedesktop.secrets: credential storage'
+)
+
 provides=(
     "slack-desktop=${pkgver}"
-    "slack-desktop-wayland=${pkgver}"
 )
 
 conflicts=(
@@ -58,24 +62,22 @@ prepare() {
 package() {
     local data_archive
 
-  data_archive="$(
-    find "${srcdir}/deb" \
-        -maxdepth 1 \
-        -type f \
-        -name 'data.tar.*' \
-        -print \
-        -quit
-        )"
+    data_archive="$(
+        find "${srcdir}/deb" \
+            -maxdepth 1 \
+            -type f \
+            -name 'data.tar.*' \
+            -print \
+            -quit
+    )"
 
     if [[ -z "${data_archive}" ]]; then
         printf '%s\n' 'Could not find data.tar.* in Slack Debian package' >&2
         return 1
     fi
 
-    # Install Slack's Debian filesystem payload.
     bsdtar -xf "${data_archive}" -C "${pkgdir}"
 
-    # Normalize system directory permissions.
     chmod 0755 \
         "${pkgdir}/usr" \
         "${pkgdir}/usr/bin"
@@ -86,9 +88,14 @@ package() {
     rmdir --ignore-fail-on-non-empty "${pkgdir}/etc/cron.daily" 2>/dev/null || true
     rmdir --ignore-fail-on-non-empty "${pkgdir}/etc" 2>/dev/null || true
     rm -rf "${pkgdir}/usr/share/lintian"
+    rm -rf "${pkgdir}/usr/share/doc"
 
     # Arch custom-license convention.
-    install -Dm644 \
+    install -dm755 "${pkgdir}/usr/share/licenses/${pkgname}"
+    mv \
         "${pkgdir}/usr/lib/slack/LICENSE" \
         "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    ln -s \
+        "/usr/share/licenses/${pkgname}/LICENSE" \
+        "${pkgdir}/usr/lib/slack/LICENSE"
 }

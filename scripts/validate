@@ -25,11 +25,7 @@ export PKGDEST="${artifact_dir}"
 
 cd "${package_dir}"
 
-mapfile -t built_packages < <(
-    makepkg \
-        --config "${root}/config/makepkg.conf" \
-        --packagelist
-)
+mapfile -t built_packages < <(makepkg --packagelist)
 
 failed=0
 
@@ -67,9 +63,6 @@ for package_file in "${built_packages[@]}"; do
     validate_target "${package_file}"
 done
 
-#
-# Optional package-specific checks.
-#
 if [[ -x "${package_dir}/validate" ]]; then
     "${package_dir}/validate" "${built_packages[@]}"
 fi

@@ -53,18 +53,17 @@ Publishing runs from the release host, which keeps the signing key, rclone
 credentials, and the persistent `repo/` directory.
 
 ```bash
-./scripts/release all <rclone-remote:path>
+./scripts/release all
 ```
 
 To publish only one package:
 
 ```bash
-./scripts/release <package> <rclone-remote:path>
+./scripts/release <package>
 ```
 
-The rclone destination must point to the bucket root served by
-`pacshelf.moreyet.com`. Package updates are immutable, so bump `pkgrel` when
-changing a package without changing its upstream version.
+Package updates are immutable, so bump `pkgrel` when changing a package without
+changing its upstream version.
 
 GitHub Actions validates package changes and checks for upstream releases. The
 update workflow uses a repository-scoped GitHub App to open signed pull
@@ -76,5 +75,5 @@ validation to pass, and squash-merge it. Then publish from the release host:
 ```bash
 git switch main
 git pull --ff-only
-./scripts/release <package> r2:pacshelf
+./scripts/release <package>
 ```

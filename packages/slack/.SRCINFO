@@ -1,7 +1,7 @@
 pkgbase = slack
 	pkgdesc = Desktop client for team communication and collaboration
 	pkgver = 4.51.191
-	pkgrel = 2
+	pkgrel = 3
 	url = https://slack.com/downloads/linux
 	arch = x86_64
 	license = LicenseRef-Slack
@@ -10,14 +10,15 @@ pkgbase = slack
 	depends = gtk3
 	depends = libappindicator
 	depends = libnotify
+	depends = libsecret
 	depends = libxkbfile
 	depends = libxss
 	depends = libxtst
 	depends = nss
 	depends = util-linux-libs
 	depends = xdg-utils
+	optdepends = org.freedesktop.secrets: credential storage
 	provides = slack-desktop=4.51.191
-	provides = slack-desktop-wayland=4.51.191
 	conflicts = slack-desktop
 	conflicts = slack-desktop-wayland
 	conflicts = slack-electron
