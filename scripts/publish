@@ -296,8 +296,8 @@ rclone copy \
     "${remote_repo}" \
     --checksum \
     --copy-links \
-    --include "${REPO_NAME}.db*" \
-    --include "${REPO_NAME}.files*" \
-    --exclude '*'
+    --filter "+ ${REPO_NAME}.db*" \
+    --filter "+ ${REPO_NAME}.files*" \
+    --filter '- *'
 
 printf '==> Published: %s/%s\n' "${REPO_BASE_URL}" "${REPO_ARCH}"
