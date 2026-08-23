@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${root}/config/repo.conf"
+
+usage() {
+    printf 'Usage: %s <package>\n' "$(basename "$0")" >&2
+    exit 2
+}
+
+[[ $# -eq 1 ]] || usage
+
+package_name="$1"
+package_dir="${root}/packages/${package_name}"
+
+cache_dir="${root}/.cache"
+source_dir="${cache_dir}/sources"
+build_dir="${cache_dir}/build"
+log_dir="${cache_dir}/logs"
+artifact_dir="${cache_dir}/artifacts/${REPO_ARCH}"
+
+if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
+    printf 'error: package not found: %s\n' "${package_name}" >&2
+    exit 1
+fi
+
+mkdir -p \
+    "${source_dir}" \
+    "${build_dir}" \
+    "${log_dir}" \
+    "${artifact_dir}"
+
+export PKGDEST="${artifact_dir}"
+export SRCDEST="${source_dir}"
+export BUILDDIR="${build_dir}"
+export LOGDEST="${log_dir}"
+
+cd "${package_dir}"
+
+#
+# PKGBUILD and .SRCINFO must agree.
+#
+tmp_srcinfo="$(mktemp)"
+trap 'rm -f "${tmp_srcinfo}"' EXIT
+
+makepkg --printsrcinfo > "${tmp_srcinfo}"
+
+if ! cmp -s .SRCINFO "${tmp_srcinfo}"; then
+    printf '%s\n' \
+        'error: .SRCINFO is out of sync with PKGBUILD' >&2
+    exit 1
+fi
+
+printf '==> Building: %s\n' "${package_name}"
+
+makepkg \
+    --syncdeps \
+    --noconfirm \
+    --cleanbuild \
+    --clean \
+    --force
+
+mapfile -t built_packages < <(makepkg --packagelist)
+
+if (( ${#built_packages[@]} == 0 )); then
+    printf 'error: no packages produced\n' >&2
+    exit 1
+fi
+
+for package_file in "${built_packages[@]}"; do
+    [[ -f "${package_file}" ]] || {
+        printf 'error: expected artifact missing: %s\n' \
+            "${package_file}" >&2
+        exit 1
+    }
+
+    printf '==> Built: %s\n' "${package_file}"
+done

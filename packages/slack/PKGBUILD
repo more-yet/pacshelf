@@ -1,0 +1,96 @@
+# Maintainer: Aditya Singh
+
+pkgname=slack
+pkgver=4.51.180
+pkgrel=1
+
+pkgdesc='Desktop client for team communication and collaboration'
+arch=('x86_64')
+url='https://slack.com/downloads/linux'
+license=('LicenseRef-Slack')
+
+depends=(
+    'alsa-lib'
+    'at-spi2-core'
+    'gtk3'
+    'libappindicator'
+    'libnotify'
+    'libxkbfile'
+    'libxss'
+    'libxtst'
+    'nss'
+    'util-linux-libs'
+    'xdg-utils'
+)
+
+provides=(
+    "slack-desktop=${pkgver}"
+    "slack-desktop-wayland=${pkgver}"
+)
+
+conflicts=(
+    'slack-desktop'
+    'slack-desktop-wayland'
+    'slack-electron'
+)
+
+options=('!strip')
+
+_deb="slack-desktop-${pkgver}-amd64.deb"
+
+source=(
+    "${_deb}::https://downloads.slack-edge.com/desktop-releases/linux/x64/${pkgver}/slack-desktop-${pkgver}-amd64.deb"
+)
+
+noextract=("${_deb}")
+
+sha256sums=(
+    'aa45e151794703377012a9ad78f0b2152c368852e085267ae689dafb5c308ea1'
+)
+
+prepare() {
+    rm -rf "${srcdir}/deb"
+    mkdir -p "${srcdir}/deb"
+
+    bsdtar -xf \
+        "${srcdir}/${_deb}" \
+        -C "${srcdir}/deb"
+}
+
+package() {
+    local data_archive
+
+  data_archive="$(
+    find "${srcdir}/deb" \
+        -maxdepth 1 \
+        -type f \
+        -name 'data.tar.*' \
+        -print \
+        -quit
+        )"
+
+    if [[ -z "${data_archive}" ]]; then
+        printf '%s\n' 'Could not find data.tar.* in Slack Debian package' >&2
+        return 1
+    fi
+
+    # Install Slack's Debian filesystem payload.
+    bsdtar -xf "${data_archive}" -C "${pkgdir}"
+
+    # Normalize system directory permissions.
+    chmod 0755 \
+        "${pkgdir}/usr" \
+        "${pkgdir}/usr/bin"
+
+    # Debian-specific repository/configuration files have no place in Arch.
+    rm -rf "${pkgdir}/etc/apt"
+    rm -f "${pkgdir}/etc/cron.daily/slack"
+    rmdir --ignore-fail-on-non-empty "${pkgdir}/etc/cron.daily" 2>/dev/null || true
+    rmdir --ignore-fail-on-non-empty "${pkgdir}/etc" 2>/dev/null || true
+    rm -rf "${pkgdir}/usr/share/lintian"
+
+    # Arch custom-license convention.
+    install -Dm644 \
+        "${pkgdir}/usr/lib/slack/LICENSE" \
+        "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

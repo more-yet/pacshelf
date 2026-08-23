@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+usage() {
+    printf 'Usage: %s <package>\n' "$(basename "$0")" >&2
+    exit 2
+}
+
+[[ $# -eq 1 ]] || usage
+
+package_name="$1"
+package_dir="${root}/packages/${package_name}"
+
+if [[ ! -d "${package_dir}" ]]; then
+    printf 'error: package does not exist: %s\n' "${package_name}" >&2
+    exit 1
+fi
+
+if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
+    printf 'error: missing PKGBUILD: %s\n' "${package_dir}/PKGBUILD" >&2
+    exit 1
+fi
+
+if [[ ! -f "${package_dir}/.nvchecker.toml" ]]; then
+    printf 'error: missing .nvchecker.toml for %s\n' "${package_name}" >&2
+    exit 1
+fi
+
+cd "${package_dir}"
+
+printf '==> Checking upstream: %s\n' "${package_name}"
+
+set +e
+pkgctl version check -v
+status=$?
+set -e
+
+case "${status}" in
+    0)
+        printf '==> Already up-to-date: %s\n' "${package_name}"
+        exit 0
+        ;;
+
+    2)
+        printf '==> New upstream version found: %s\n' "${package_name}"
+        ;;
+
+    3)
+        printf 'error: upstream version check failed for %s\n' \
+            "${package_name}" >&2
+        exit 1
+        ;;
+
+    *)
+        printf 'error: pkgctl version check failed with status %d\n' \
+            "${status}" >&2
+        exit 1
+        ;;
+esac
+
+printf '==> Updating PKGBUILD: %s\n' "${package_name}"
+
+pkgctl version upgrade -v
+
+printf '==> Regenerating .SRCINFO\n'
+
+makepkg --printsrcinfo > .SRCINFO
+
+printf '==> Updated: %s\n' "${package_name}"

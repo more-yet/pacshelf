@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${root}/config/repo.conf"
+
+[[ $# -eq 1 ]] || {
+    printf 'Usage: %s <package>\n' "$(basename "$0")" >&2
+    exit 2
+}
+
+package_name="$1"
+package_dir="${root}/packages/${package_name}"
+artifact_dir="${root}/.cache/artifacts/${REPO_ARCH}"
+
+command -v namcap >/dev/null || {
+    printf 'error: namcap is required\n' >&2
+    exit 1
+}
+
+export PKGDEST="${artifact_dir}"
+
+cd "${package_dir}"
+
+mapfile -t built_packages < <(makepkg --packagelist)
+
+failed=0
+
+validate_target() {
+    local target="$1"
+    local output
+    local status
+
+    printf '==> Validating: %s\n' "${target}"
+
+    set +e
+    output="$(namcap "${target}" 2>&1)"
+    status=$?
+    set -e
+
+    [[ -z "${output}" ]] || printf '%s\n' "${output}"
+
+    if (( status != 0 )); then
+        failed=1
+    fi
+
+    if grep -Eq '(^|[[:space:]])E:' <<< "${output}"; then
+        failed=1
+    fi
+}
+
+validate_target PKGBUILD
+
+for package_file in "${built_packages[@]}"; do
+    if [[ ! -f "${package_file}" ]]; then
+        printf 'error: artifact missing: %s\n' "${package_file}" >&2
+        exit 1
+    fi
+
+    validate_target "${package_file}"
+done
+
+#
+# Optional package-specific checks.
+#
+if [[ -x "${package_dir}/validate" ]]; then
+    "${package_dir}/validate" "${built_packages[@]}"
+fi
+
+if (( failed != 0 )); then
+    printf 'error: validation failed for %s\n' "${package_name}" >&2
+    exit 1
+fi
+
+printf '==> Validation passed: %s\n' "${package_name}"

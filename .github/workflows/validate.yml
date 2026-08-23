@@ -1,0 +1,123 @@
+name: Validate packages
+
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - "scripts/**"
+      - "config/**"
+      - ".github/workflows/validate.yml"
+
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/**"
+      - "scripts/**"
+      - "config/**"
+      - ".github/workflows/validate.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Build and validate packages
+    runs-on: ubuntu-latest
+
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Prepare Arch environment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pacman -Syu --noconfirm --needed \
+            base-devel \
+            devtools \
+            git \
+            namcap \
+            nvchecker \
+            shellcheck \
+            sudo
+
+          useradd --create-home builder
+
+          printf '%s\n' \
+            'builder ALL=(ALL:ALL) NOPASSWD: ALL' \
+            > /etc/sudoers.d/builder
+
+          chmod 0440 /etc/sudoers.d/builder
+          chown -R builder:builder "${GITHUB_WORKSPACE}"
+
+      - name: ShellCheck
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t shell_files < <(
+            {
+              find scripts -type f -print
+              find packages -type f -name validate -print
+            } | sort
+          )
+
+          shellcheck "${shell_files[@]}"
+
+      - name: Verify source metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo -u builder -- bash -lc "
+            cd '${GITHUB_WORKSPACE}'
+
+            for package_dir in packages/*; do
+              [[ -d \"\${package_dir}\" ]] || continue
+
+              package=\"\${package_dir##*/}\"
+              printf '==> Checking metadata: %s\n' \"\${package}\"
+
+              cd \"${GITHUB_WORKSPACE}/\${package_dir}\"
+
+              makepkg --printsrcinfo > /tmp/srcinfo
+
+              cmp -s .SRCINFO /tmp/srcinfo || {
+                printf 'error: %s/.SRCINFO is out of sync\n' \
+                  \"\${package_dir}\" >&2
+                exit 1
+              }
+
+              cd '${GITHUB_WORKSPACE}'
+            done
+          "
+
+      - name: Build and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo -u builder -- bash -lc "
+            cd '${GITHUB_WORKSPACE}'
+
+            for package_dir in packages/*; do
+              [[ -d \"\${package_dir}\" ]] || continue
+
+              package=\"\${package_dir##*/}\"
+
+              printf '\n==> PacShelf CI: %s\n' \"\${package}\"
+
+              ./scripts/pipeline \"\${package}\"
+            done
+          "

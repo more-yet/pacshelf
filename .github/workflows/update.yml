@@ -1,0 +1,77 @@
+name: Check package updates
+
+on:
+  schedule:
+    - cron: "20 */6 * * *"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: package-updates
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update package sources
+    runs-on: ubuntu-latest
+
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Prepare Arch environment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pacman -Syu --noconfirm --needed \
+            base-devel \
+            devtools \
+            git \
+            nvchecker \
+            pacman-contrib \
+            sudo
+
+          useradd --create-home builder
+          chown -R builder:builder "${GITHUB_WORKSPACE}"
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Check upstream versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo -u builder -- bash -lc "
+            cd '${GITHUB_WORKSPACE}'
+
+            for package_dir in packages/*; do
+              [[ -d \"\${package_dir}\" ]] || continue
+
+              package=\"\${package_dir##*/}\"
+              ./scripts/update \"\${package}\"
+            done
+          "
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.PACSHELF_UPDATE_TOKEN }}
+          commit-message: "Update package versions"
+          title: "Update package versions"
+          body: |
+            Automated upstream package updates.
+
+            Package builds and artifact validation run in the normal pull
+            request workflow before these changes can be merged.
+          branch: automation/package-updates
+          delete-branch: true
+          add-paths: packages

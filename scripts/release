@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${root}/config/repo.conf"
+
+[[ $# -eq 2 ]] || {
+    printf 'Usage: %s <package|all> <rclone-destination>\n' \
+        "$(basename "$0")" >&2
+    exit 2
+}
+
+selection="$1"
+fingerprint="${REPO_SIGNING_KEY^^}"
+remote="$2"
+repo_dir="${root}/repo/${REPO_ARCH}"
+
+[[ "${fingerprint}" =~ ^[0-9A-F]{40}$ ]] || {
+    printf 'error: signing fingerprint must contain 40 hexadecimal characters\n' >&2
+    exit 2
+}
+
+[[ "${remote}" =~ ^[a-zA-Z0-9._-]+: ]] || {
+    printf 'error: rclone destination must use remote:path syntax\n' >&2
+    exit 2
+}
+
+for required_command in \
+    bsdtar \
+    flock \
+    git \
+    gpg \
+    makepkg \
+    namcap \
+    rclone \
+    repo-add \
+    vercmp
+do
+    command -v "${required_command}" >/dev/null || {
+        printf 'error: %s is required\n' "${required_command}" >&2
+        exit 1
+    }
+done
+
+secret_fingerprints="$(
+    { gpg --batch --with-colons \
+        --list-secret-keys "${fingerprint}" 2>/dev/null || true; } |
+        awk -F: '
+            $1 == "sec" { primary = 1; next }
+            primary && $1 == "fpr" { print toupper($10); primary = 0 }
+        '
+)"
+
+grep -Fqx "${fingerprint}" <<< "${secret_fingerprints}" || {
+    printf 'error: secret signing key not found: %s\n' "${fingerprint}" >&2
+    exit 1
+}
+
+if [[ -n "$(git -C "${root}" status --porcelain --untracked-files=normal)" ]]; then
+    printf '%s\n' 'error: releases require a clean Git worktree' >&2
+    exit 1
+fi
+
+if [[ "${selection}" == all ]]; then
+    packages=()
+
+    for package_dir in "${root}"/packages/*; do
+        [[ -f "${package_dir}/PKGBUILD" ]] || continue
+        packages+=("$(basename "${package_dir}")")
+    done
+else
+    [[ "${selection}" =~ ^[a-zA-Z0-9@._+-]+$ ]] || {
+        printf 'error: invalid package name: %s\n' "${selection}" >&2
+        exit 2
+    }
+
+    [[ -f "${root}/packages/${selection}/PKGBUILD" ]] || {
+        printf 'error: package not found: %s\n' "${selection}" >&2
+        exit 1
+    }
+
+    packages=("${selection}")
+fi
+
+(( ${#packages[@]} > 0 )) || {
+    printf 'error: no packages found\n' >&2
+    exit 1
+}
+
+mkdir -p "${root}/.cache"
+
+exec 9> "${root}/.cache/release.lock"
+
+flock -n 9 || {
+    printf 'error: another release is already running\n' >&2
+    exit 1
+}
+
+mkdir -p "${repo_dir}"
+
+database_files=''
+
+if [[ -f "${repo_dir}/${REPO_NAME}.db.tar.zst" ]]; then
+    while IFS= read -r entry; do
+        [[ "${entry}" == */desc ]] || continue
+
+        package_file="$(
+            bsdtar -xOf \
+                "${repo_dir}/${REPO_NAME}.db.tar.zst" \
+                "${entry}" |
+                awk '
+                    $0 == "%FILENAME%" { getline; print; exit }
+                '
+        )"
+
+        [[ -n "${package_file}" ]] || {
+            printf 'error: local repository database is unreadable\n' >&2
+            exit 1
+        }
+
+        database_files+="${package_file}"$'\n'
+    done < <(bsdtar -tf "${repo_dir}/${REPO_NAME}.db.tar.zst")
+
+    [[ -n "${database_files}" ]] || {
+        printf 'error: local repository database is empty or unreadable\n' >&2
+        exit 1
+    }
+fi
+
+for package_name in "${packages[@]}"; do
+    package_dir="${root}/packages/${package_name}"
+
+    mapfile -t expected_packages < <(
+        cd "${package_dir}"
+        PKGDEST="${repo_dir}" makepkg --packagelist
+    )
+
+    already_published=true
+
+    if [[ ! -f "${repo_dir}/${REPO_NAME}.db.tar.zst" ]]; then
+        already_published=false
+    fi
+
+    for package_file in "${expected_packages[@]}"; do
+        package_basename="$(basename "${package_file}")"
+
+        if [[ ! -f "${package_file}" || ! -f "${package_file}.sig" ]]; then
+            already_published=false
+            break
+        fi
+
+        if ! grep -Fqx "${package_basename}" <<< "${database_files}"; then
+            already_published=false
+            break
+        fi
+    done
+
+    if [[ "${already_published}" == true ]]; then
+        printf '==> Already built: %s\n' "${package_name}"
+        continue
+    fi
+
+    "${root}/scripts/pipeline" "${package_name}"
+    "${root}/scripts/sign" "${package_name}"
+    "${root}/scripts/repo-build" "${package_name}"
+
+    for package_file in "${expected_packages[@]}"; do
+        database_files+="$(basename "${package_file}")"$'\n'
+    done
+done
+
+"${root}/scripts/publish" "${remote}"
+
+printf '\n==> Release complete\n'

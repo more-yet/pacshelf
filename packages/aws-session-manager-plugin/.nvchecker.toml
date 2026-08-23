@@ -1,0 +1,5 @@
+[aws-session-manager-plugin]
+source = "regex"
+url = "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/VERSION"
+regex = '([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)'
+sort_version_key = "vercmp"

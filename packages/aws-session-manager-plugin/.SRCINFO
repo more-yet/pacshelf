@@ -1,0 +1,18 @@
+pkgbase = aws-session-manager-plugin
+	pkgdesc = AWS Systems Manager Session Manager plugin
+	pkgver = 1.2.835.0
+	pkgrel = 1
+	url = https://github.com/aws/session-manager-plugin
+	arch = x86_64
+	license = Apache-2.0
+	depends = glibc
+	optdepends = aws-cli: AWS CLI v1 integration
+	optdepends = aws-cli-v2: AWS CLI v2 integration
+	provides = session-manager-plugin=1.2.835.0
+	conflicts = session-manager-plugin
+	noextract = session-manager-plugin-1.2.835.0-amd64.deb
+	options = !strip
+	source = session-manager-plugin-1.2.835.0-amd64.deb::https://s3.amazonaws.com/session-manager-downloads/plugin/1.2.835.0/ubuntu_64bit/session-manager-plugin.deb
+	sha256sums = 7c6dcad12518571cc7959a713e6a8ae1bdf6ed66fd9bee37dc189e39ca58ae03
+
+pkgname = aws-session-manager-plugin

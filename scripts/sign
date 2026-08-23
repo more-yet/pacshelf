@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${root}/config/repo.conf"
+
+[[ $# -eq 1 ]] || {
+    printf 'Usage: %s <package>\n' "$(basename "$0")" >&2
+    exit 2
+}
+
+package_name="$1"
+fingerprint="${REPO_SIGNING_KEY^^}"
+package_dir="${root}/packages/${package_name}"
+artifact_dir="${root}/.cache/artifacts/${REPO_ARCH}"
+public_key="${root}/repo/${REPO_NAME}.asc"
+
+[[ "${fingerprint}" =~ ^[0-9A-F]{40}$ ]] || {
+    printf 'error: signing fingerprint must contain 40 hexadecimal characters\n' >&2
+    exit 2
+}
+
+if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
+    printf 'error: package not found: %s\n' "${package_name}" >&2
+    exit 1
+fi
+
+command -v gpg >/dev/null || {
+    printf 'error: gpg is required\n' >&2
+    exit 1
+}
+
+secret_fingerprints="$(
+    { gpg --batch --with-colons \
+        --list-secret-keys "${fingerprint}" 2>/dev/null || true; } |
+        awk -F: '
+            $1 == "sec" { primary = 1; next }
+            primary && $1 == "fpr" { print toupper($10); primary = 0 }
+        '
+)"
+
+grep -Fqx "${fingerprint}" <<< "${secret_fingerprints}" || {
+    printf 'error: secret signing key not found: %s\n' "${fingerprint}" >&2
+    exit 1
+}
+
+mkdir -p "$(dirname "${public_key}")"
+
+public_key_tmp="$(mktemp)"
+trap 'rm -f "${public_key_tmp}"' EXIT
+
+gpg --batch --armor --export "${fingerprint}" > "${public_key_tmp}"
+
+[[ -s "${public_key_tmp}" ]] || {
+    printf 'error: could not export public signing key\n' >&2
+    exit 1
+}
+
+if [[ -e "${public_key}" ]] && ! cmp -s "${public_key_tmp}" "${public_key}"; then
+    printf 'error: repository public key does not match signing key: %s\n' \
+        "${public_key}" >&2
+    exit 1
+fi
+
+install -Dm644 "${public_key_tmp}" "${public_key}"
+
+export PKGDEST="${artifact_dir}"
+
+cd "${package_dir}"
+
+mapfile -t built_packages < <(makepkg --packagelist)
+
+for package_file in "${built_packages[@]}"; do
+    [[ -f "${package_file}" ]] || {
+        printf 'error: artifact missing: %s\n' "${package_file}" >&2
+        exit 1
+    }
+
+    signature="${package_file}.sig"
+
+    if [[ ! -e "${signature}" ]]; then
+        signature_tmp="$(mktemp "${signature}.tmp.XXXXXX")"
+
+        if ! gpg --yes --detach-sign \
+            --local-user "${fingerprint}" \
+            --output "${signature_tmp}" \
+            "${package_file}"
+        then
+            rm -f "${signature_tmp}"
+            printf 'error: failed to sign package: %s\n' "${package_file}" >&2
+            exit 1
+        fi
+
+        mv "${signature_tmp}" "${signature}"
+    fi
+
+    set +e
+    signature_status="$(
+        gpg --batch --status-fd 1 \
+            --verify "${signature}" "${package_file}" 2>/dev/null
+    )"
+    signature_result=$?
+    set -e
+
+    signer="$(
+        awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print toupper($NF); exit }' \
+            <<< "${signature_status}"
+    )"
+
+    if (( signature_result != 0 )) || [[ "${signer}" != "${fingerprint}" ]]; then
+        printf 'error: package signature is not valid for %s: %s\n' \
+            "${fingerprint}" "${signature}" >&2
+        exit 1
+    fi
+
+    printf '==> Signed: %s\n' "${package_file}"
+done

@@ -1,0 +1,27 @@
+# makepkg working directories
+**/src/
+**/pkg/
+
+# Downloaded upstream sources
+*.deb
+*.rpm
+
+# Built Arch packages
+*.pkg.tar.*
+*.src.tar.*
+
+# Build/source cache
+.cache/
+
+# Generated pacman repository
+repo/
+
+# Signatures generated during builds
+*.sig
+
+# Logs
+*.log
+
+# Editor files
+*.swp
+*~

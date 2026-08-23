@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+[[ $# -ge 1 ]] || {
+    printf 'error: no package artifact supplied\n' >&2
+    exit 1
+}
+
+fail() {
+    printf 'error: %s\n' "$*" >&2
+    exit 1
+}
+
+for archive in "$@"; do
+    printf '==> Checking Slack package invariants\n'
+
+    pkginfo="$(bsdtar -xOf "${archive}" .PKGINFO)"
+    grep -Fqx 'pkgname = slack' <<< "${pkginfo}" ||
+        fail 'unexpected package name'
+
+    listing="$(bsdtar -tf "${archive}")"
+
+    for required in \
+        'usr/bin/slack' \
+        'usr/lib/slack/slack' \
+        'usr/share/applications/slack.desktop'
+    do
+        grep -Fqx "${required}" <<< "${listing}" ||
+            fail "missing required path: ${required}"
+    done
+
+    if grep -Fqx 'etc/cron.daily/slack' <<< "${listing}"; then
+        fail 'Debian cron hook leaked into package'
+    fi
+
+    desktop="$(
+        bsdtar -xOf \
+            "${archive}" \
+            usr/share/applications/slack.desktop
+    )"
+
+    grep -Fqx 'Exec=/usr/bin/slack %U' <<< "${desktop}" ||
+        fail 'Slack desktop launcher was unexpectedly modified'
+
+    verbose_listing="$(bsdtar -tvf "${archive}")"
+
+    usr_mode="$(
+        awk '$NF == "usr/" { print $1; exit }' \
+            <<< "${verbose_listing}"
+    )"
+
+    bin_mode="$(
+        awk '$NF == "usr/bin/" { print $1; exit }' \
+            <<< "${verbose_listing}"
+    )"
+
+    sandbox_mode="$(
+        awk '$NF == "usr/lib/slack/chrome-sandbox" { print $1; exit }' \
+            <<< "${verbose_listing}"
+    )"
+
+    [[ "${usr_mode}" == 'drwxr-xr-x' ]] ||
+        fail "unexpected /usr mode: ${usr_mode}"
+
+    [[ "${bin_mode}" == 'drwxr-xr-x' ]] ||
+        fail "unexpected /usr/bin mode: ${bin_mode}"
+
+    [[ "${sandbox_mode}" == '-rwsr-xr-x' ]] ||
+        fail "unexpected chrome-sandbox mode: ${sandbox_mode}"
+
+    grep -Fq \
+        'usr/bin/slack -> ../lib/slack/slack' \
+        <<< "${verbose_listing}" ||
+        fail 'unexpected /usr/bin/slack symlink'
+
+    printf '==> Slack package invariants passed\n'
+done
