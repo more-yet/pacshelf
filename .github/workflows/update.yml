@@ -23,11 +23,6 @@ jobs:
       image: archlinux:latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
       - name: Prepare Arch environment
         shell: bash
         run: |
@@ -43,6 +38,17 @@ jobs:
             sudo
 
           useradd --create-home builder
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Prepare workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+
           chown -R builder:builder "${GITHUB_WORKSPACE}"
           git config --global --add safe.directory "${GITHUB_WORKSPACE}"
 
@@ -66,7 +72,7 @@ jobs:
           "
 
       - name: Create pull request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.PACSHELF_UPDATE_TOKEN }}
           commit-message: "Update package versions"
