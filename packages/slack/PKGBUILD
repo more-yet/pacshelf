@@ -2,7 +2,7 @@
 
 pkgname=slack
 pkgver=4.51.191
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Desktop client for team communication and collaboration'
 arch=('x86_64')
