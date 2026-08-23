@@ -5,6 +5,7 @@
 # Downloaded upstream sources
 *.deb
 *.rpm
+*.tar.gz
 
 # Built Arch packages
 *.pkg.tar.*

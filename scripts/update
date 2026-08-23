@@ -67,6 +67,9 @@ pkgctl version upgrade -v
 
 printf '==> Regenerating .SRCINFO\n'
 
-makepkg --printsrcinfo > .SRCINFO
+makepkg \
+    --config "${root}/config/makepkg.conf" \
+    --printsrcinfo \
+    > .SRCINFO
 
 printf '==> Updated: %s\n' "${package_name}"

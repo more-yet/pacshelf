@@ -15,13 +15,13 @@ fail() {
 for archive in "$@"; do
     printf '==> Checking AWS Session Manager Plugin invariants\n'
 
+    pkginfo="$(bsdtar -xOf "${archive}" .PKGINFO)"
     listing="$(bsdtar -tf "${archive}")"
 
     for required in \
         'usr/bin/session-manager-plugin' \
-        'usr/lib/aws-session-manager-plugin/bin/session-manager-plugin' \
-        'usr/lib/aws-session-manager-plugin/VERSION' \
-        'usr/lib/aws-session-manager-plugin/seelog.xml.template' \
+        'usr/share/doc/aws-session-manager-plugin/NOTICE' \
+        'usr/share/doc/aws-session-manager-plugin/THIRD-PARTY' \
         'usr/share/licenses/aws-session-manager-plugin/LICENSE'
     do
         grep -Fqx "${required}" <<< "${listing}" ||
@@ -29,6 +29,7 @@ for archive in "$@"; do
     done
 
     for forbidden in \
+        'usr/lib/aws-session-manager-plugin/' \
         'usr/local/' \
         'etc/init/' \
         'lib/systemd/system/session-manager-plugin.service' \
@@ -39,29 +40,19 @@ for archive in "$@"; do
         fi
     done
 
-    verbose="$(bsdtar -tvf "${archive}")"
-
-    grep -Fq \
-        'usr/bin/session-manager-plugin -> ../lib/aws-session-manager-plugin/bin/session-manager-plugin' \
-        <<< "${verbose}" ||
-        fail 'unexpected session-manager-plugin symlink'
-
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' EXIT
 
     bsdtar -xOf \
         "${archive}" \
-        usr/lib/aws-session-manager-plugin/bin/session-manager-plugin \
+        usr/bin/session-manager-plugin \
         > "${tmp}"
 
     chmod +x "${tmp}"
 
-    expected="$(
-        bsdtar -xOf \
-            "${archive}" \
-            usr/lib/aws-session-manager-plugin/VERSION |
-        tr -d '\r\n'
-    )"
+    expected="$(grep -F 'pkgver = ' <<< "${pkginfo}")"
+    expected="${expected#pkgver = }"
+    expected="${expected%-*}"
 
     actual="$("${tmp}" --version | tr -d '\r\n')"
 

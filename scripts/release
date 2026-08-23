@@ -45,6 +45,43 @@ do
     }
 done
 
+if ! current_branch="$(git -C "${root}" symbolic-ref --quiet --short HEAD)"; then
+    printf '%s\n' 'error: releases cannot run from a detached HEAD' >&2
+    exit 1
+fi
+
+if [[ "${current_branch}" != main ]]; then
+    printf 'error: releases must run from main, not %s\n' \
+        "${current_branch}" >&2
+    exit 1
+fi
+
+if [[ -n "$(git -C "${root}" status --porcelain --untracked-files=normal)" ]]; then
+    printf '%s\n' 'error: releases require a clean Git worktree' >&2
+    exit 1
+fi
+
+if ! remote_main="$(
+    git -C "${root}" ls-remote --exit-code origin refs/heads/main
+)"; then
+    printf '%s\n' 'error: could not read origin/main' >&2
+    exit 1
+fi
+
+read -r remote_commit remote_ref <<< "${remote_main}"
+
+if [[ ! "${remote_commit}" =~ ^[0-9a-fA-F]{40,64}$ ]] || \
+    [[ "${remote_ref}" != refs/heads/main ]]
+then
+    printf '%s\n' 'error: origin/main returned an invalid Git reference' >&2
+    exit 1
+fi
+
+if [[ "$(git -C "${root}" rev-parse HEAD)" != "${remote_commit}" ]]; then
+    printf '%s\n' 'error: local main is not current with origin/main' >&2
+    exit 1
+fi
+
 secret_fingerprints="$(
     { gpg --batch --with-colons \
         --list-secret-keys "${fingerprint}" 2>/dev/null || true; } |
@@ -58,11 +95,6 @@ grep -Fqx "${fingerprint}" <<< "${secret_fingerprints}" || {
     printf 'error: secret signing key not found: %s\n' "${fingerprint}" >&2
     exit 1
 }
-
-if [[ -n "$(git -C "${root}" status --porcelain --untracked-files=normal)" ]]; then
-    printf '%s\n' 'error: releases require a clean Git worktree' >&2
-    exit 1
-fi
 
 if [[ "${selection}" == all ]]; then
     packages=()
@@ -135,7 +167,9 @@ for package_name in "${packages[@]}"; do
 
     mapfile -t expected_packages < <(
         cd "${package_dir}"
-        PKGDEST="${repo_dir}" makepkg --packagelist
+        PKGDEST="${repo_dir}" makepkg \
+            --config "${root}/config/makepkg.conf" \
+            --packagelist
     )
 
     already_published=true
