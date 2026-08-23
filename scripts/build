@@ -47,7 +47,10 @@ cd "${package_dir}"
 tmp_srcinfo="$(mktemp)"
 trap 'rm -f "${tmp_srcinfo}"' EXIT
 
-makepkg --printsrcinfo > "${tmp_srcinfo}"
+makepkg \
+    --config "${root}/config/makepkg.conf" \
+    --printsrcinfo \
+    > "${tmp_srcinfo}"
 
 if ! cmp -s .SRCINFO "${tmp_srcinfo}"; then
     printf '%s\n' \
@@ -58,13 +61,18 @@ fi
 printf '==> Building: %s\n' "${package_name}"
 
 makepkg \
+    --config "${root}/config/makepkg.conf" \
     --syncdeps \
     --noconfirm \
     --cleanbuild \
     --clean \
     --force
 
-mapfile -t built_packages < <(makepkg --packagelist)
+mapfile -t built_packages < <(
+    makepkg \
+        --config "${root}/config/makepkg.conf" \
+        --packagelist
+)
 
 if (( ${#built_packages[@]} == 0 )); then
     printf 'error: no packages produced\n' >&2

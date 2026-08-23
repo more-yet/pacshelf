@@ -44,7 +44,11 @@ mkdir -p "${repo_dir}"
 
 cd "${package_dir}"
 
-mapfile -t built_packages < <(makepkg --packagelist)
+mapfile -t built_packages < <(
+    makepkg \
+        --config "${root}/config/makepkg.conf" \
+        --packagelist
+)
 
 published=()
 

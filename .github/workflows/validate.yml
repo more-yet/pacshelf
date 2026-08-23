@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Prepare Arch environment
         shell: bash
@@ -68,35 +70,6 @@ jobs:
           )
 
           shellcheck "${shell_files[@]}"
-
-      - name: Verify source metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sudo -u builder -- bash -lc "
-            set -euo pipefail
-            cd '${GITHUB_WORKSPACE}'
-
-            for package_dir in packages/*; do
-              [[ -d \"\${package_dir}\" ]] || continue
-
-              package=\"\${package_dir##*/}\"
-              printf '==> Checking metadata: %s\n' \"\${package}\"
-
-              cd \"${GITHUB_WORKSPACE}/\${package_dir}\"
-
-              makepkg --printsrcinfo > /tmp/srcinfo
-
-              cmp -s .SRCINFO /tmp/srcinfo || {
-                printf 'error: %s/.SRCINFO is out of sync\n' \
-                  \"\${package_dir}\" >&2
-                exit 1
-              }
-
-              cd '${GITHUB_WORKSPACE}'
-            done
-          "
 
       - name: Build and validate
         shell: bash
