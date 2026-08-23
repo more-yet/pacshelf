@@ -67,5 +67,5 @@ The rclone destination must point to the bucket root served by
 changing a package without changing its upstream version.
 
 GitHub Actions validates package changes and checks for upstream releases. The
-update workflow uses the `PACSHELF_UPDATE_TOKEN` repository secret to open pull
+update workflow uses a repository-scoped GitHub App to open signed pull
 requests.

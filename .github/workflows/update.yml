@@ -6,9 +6,7 @@ on:
 
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: package-updates
@@ -23,6 +21,17 @@ jobs:
       image: archlinux:latest
 
     steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.PACSHELF_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PACSHELF_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Prepare Arch environment
         shell: bash
         run: |
@@ -42,6 +51,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
+          token: ${{ steps.app-token.outputs.token }}
           persist-credentials: false
 
       - name: Prepare workspace
@@ -74,7 +84,7 @@ jobs:
       - name: Create pull request
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.PACSHELF_UPDATE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: "Update package versions"
           title: "Update package versions"
           body: |
