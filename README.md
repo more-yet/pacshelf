@@ -69,3 +69,12 @@ changing a package without changing its upstream version.
 GitHub Actions validates package changes and checks for upstream releases. The
 update workflow uses a repository-scoped GitHub App to open signed pull
 requests.
+
+For each verified update pull request, review the package changes, wait for
+validation to pass, and squash-merge it. Then publish from the release host:
+
+```bash
+git switch main
+git pull --ff-only
+./scripts/release <package> r2:pacshelf
+```
