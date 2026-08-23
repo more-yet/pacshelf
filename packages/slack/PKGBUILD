@@ -1,7 +1,7 @@
 # Maintainer: Aditya Singh
 
 pkgname=slack
-pkgver=4.51.180
+pkgver=4.51.191
 pkgrel=1
 
 pkgdesc='Desktop client for team communication and collaboration'
@@ -44,9 +44,7 @@ source=(
 
 noextract=("${_deb}")
 
-sha256sums=(
-    'aa45e151794703377012a9ad78f0b2152c368852e085267ae689dafb5c308ea1'
-)
+sha256sums=('572474596216b635b69c4a72b42176a1d4d66f99e49e6267861aecdf3f79c1ed')
 
 prepare() {
     rm -rf "${srcdir}/deb"
