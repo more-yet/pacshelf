@@ -2,11 +2,6 @@ name: Validate packages
 
 on:
   pull_request:
-    paths:
-      - "packages/**"
-      - "scripts/**"
-      - "config/**"
-      - ".github/workflows/validate.yml"
 
   push:
     branches:
