@@ -1,7 +1,7 @@
 pkgbase = aws-session-manager-plugin
 	pkgdesc = AWS Systems Manager Session Manager plugin
 	pkgver = 1.2.835.0
-	pkgrel = 1
+	pkgrel = 2
 	url = https://github.com/aws/session-manager-plugin
 	arch = x86_64
 	license = Apache-2.0

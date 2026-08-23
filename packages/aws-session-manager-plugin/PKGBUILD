@@ -2,7 +2,7 @@
 
 pkgname=aws-session-manager-plugin
 pkgver=1.2.835.0
-pkgrel=1
+pkgrel=2
 
 pkgdesc='AWS Systems Manager Session Manager plugin'
 arch=('x86_64')
