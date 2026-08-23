@@ -1,6 +1,6 @@
 pkgbase = slack
 	pkgdesc = Desktop client for team communication and collaboration
-	pkgver = 4.51.180
+	pkgver = 4.51.191
 	pkgrel = 1
 	url = https://slack.com/downloads/linux
 	arch = x86_64
@@ -16,14 +16,14 @@ pkgbase = slack
 	depends = nss
 	depends = util-linux-libs
 	depends = xdg-utils
-	provides = slack-desktop=4.51.180
-	provides = slack-desktop-wayland=4.51.180
+	provides = slack-desktop=4.51.191
+	provides = slack-desktop-wayland=4.51.191
 	conflicts = slack-desktop
 	conflicts = slack-desktop-wayland
 	conflicts = slack-electron
-	noextract = slack-desktop-4.51.180-amd64.deb
+	noextract = slack-desktop-4.51.191-amd64.deb
 	options = !strip
-	source = slack-desktop-4.51.180-amd64.deb::https://downloads.slack-edge.com/desktop-releases/linux/x64/4.51.180/slack-desktop-4.51.180-amd64.deb
-	sha256sums = aa45e151794703377012a9ad78f0b2152c368852e085267ae689dafb5c308ea1
+	source = slack-desktop-4.51.191-amd64.deb::https://downloads.slack-edge.com/desktop-releases/linux/x64/4.51.191/slack-desktop-4.51.191-amd64.deb
+	sha256sums = 572474596216b635b69c4a72b42176a1d4d66f99e49e6267861aecdf3f79c1ed
 
 pkgname = slack
