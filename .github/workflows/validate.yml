@@ -63,7 +63,7 @@ jobs:
           mapfile -t shell_files < <(
             {
               find scripts -type f -print
-              find packages -type f -name validate -print
+              find packages -type f -perm -u=x -print
             } | sort
           )
 

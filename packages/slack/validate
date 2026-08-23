@@ -14,62 +14,35 @@ fail() {
 
 archive="$1"
 
-printf '==> Checking Slack package invariants\n'
+printf '==> Checking Slack launcher invariants\n'
 
+pkginfo="$(bsdtar -xOf "${archive}" .PKGINFO)"
 listing="$(bsdtar -tf "${archive}")"
+
+grep -Fqx 'pkgname = slack' <<< "${pkginfo}" ||
+    fail 'unexpected package name'
 
 for required in \
     'usr/bin/slack' \
-    'usr/lib/slack/slack' \
     'usr/share/applications/slack.desktop' \
-    'usr/share/licenses/slack/LICENSE'
+    'usr/share/licenses/slack/LICENSE' \
+    'usr/share/slack-launcher/release'
 do
     grep -Fqx "${required}" <<< "${listing}" ||
         fail "missing required path: ${required}"
 done
 
-if grep -Fqx 'etc/cron.daily/slack' <<< "${listing}"; then
-    fail 'Debian cron hook leaked into package'
+if grep -Eq '(^|/)slack-desktop-.*\.deb$|^usr/lib/slack/' <<< "${listing}"; then
+    fail 'Slack vendor payload leaked into launcher package'
 fi
 
-desktop="$(
-    bsdtar -xOf \
-        "${archive}" \
-        usr/share/applications/slack.desktop
-)"
+desktop="$(bsdtar -xOf "${archive}" usr/share/applications/slack.desktop)"
+grep -Fqx 'Exec=slack %U' <<< "${desktop}" ||
+    fail 'unexpected desktop launcher command'
 
-grep -Fqx 'Exec=/usr/bin/slack %U' <<< "${desktop}" ||
-    fail 'Slack desktop launcher was unexpectedly modified'
+launcher="$(mktemp)"
+trap 'rm -f "${launcher}"' EXIT
+bsdtar -xOf "${archive}" usr/bin/slack > "${launcher}"
+bash -n "${launcher}"
 
-verbose_listing="$(bsdtar -tvf "${archive}")"
-
-usr_mode="$(
-    awk '$NF == "usr/" { print $1; exit }' \
-        <<< "${verbose_listing}"
-)"
-
-bin_mode="$(
-    awk '$NF == "usr/bin/" { print $1; exit }' \
-        <<< "${verbose_listing}"
-)"
-
-sandbox_mode="$(
-    awk '$NF == "usr/lib/slack/chrome-sandbox" { print $1; exit }' \
-        <<< "${verbose_listing}"
-)"
-
-[[ "${usr_mode}" == 'drwxr-xr-x' ]] ||
-    fail "unexpected /usr mode: ${usr_mode}"
-
-[[ "${bin_mode}" == 'drwxr-xr-x' ]] ||
-    fail "unexpected /usr/bin mode: ${bin_mode}"
-
-[[ "${sandbox_mode}" == '-rwsr-xr-x' ]] ||
-    fail "unexpected chrome-sandbox mode: ${sandbox_mode}"
-
-grep -Fq \
-    'usr/bin/slack -> ../lib/slack/slack' \
-    <<< "${verbose_listing}" ||
-    fail 'unexpected /usr/bin/slack symlink'
-
-printf '==> Slack package invariants passed\n'
+printf '==> Slack launcher invariants passed\n'

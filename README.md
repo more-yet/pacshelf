@@ -30,6 +30,10 @@ pacman -Sl pacshelf
 sudo pacman -S <package>
 ```
 
+The `slack` package contains an open-source launcher. On first run it downloads
+the pinned Slack release directly from Slack, verifies it, and installs it in
+the current user's data directory; PacShelf does not distribute Slack binaries.
+
 ## Development
 
 Package definitions live under `packages/`. Build and validate one with:

@@ -60,7 +60,16 @@ for package_file in "${built_packages[@]}"; do
         exit 1
     fi
 
-    validate_target "${package_file}"
+    artifact_name="$(
+        bsdtar -xOf "${package_file}" .PKGINFO |
+            awk -F ' = ' '$1 == "pkgname" { print $2; exit }'
+    )"
+
+    if [[ "${artifact_name}" == "${package_name}-debug" ]]; then
+        printf '==> Skipping generated debug package: %s\n' "${package_file}"
+    else
+        validate_target "${package_file}"
+    fi
 done
 
 if [[ -x "${package_dir}/validate" ]]; then
