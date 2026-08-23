@@ -81,6 +81,7 @@ jobs:
           set -euo pipefail
 
           sudo -u builder -- bash -lc "
+            set -euo pipefail
             cd '${GITHUB_WORKSPACE}'
 
             for package_dir in packages/*; do
@@ -109,6 +110,7 @@ jobs:
           set -euo pipefail
 
           sudo -u builder -- bash -lc "
+            set -euo pipefail
             cd '${GITHUB_WORKSPACE}'
 
             for package_dir in packages/*; do
