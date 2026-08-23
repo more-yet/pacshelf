@@ -85,3 +85,4 @@ jobs:
           branch: automation/package-updates
           delete-branch: true
           add-paths: packages
+          sign-commits: true
