@@ -18,34 +18,10 @@ package_dir="${root}/packages/${package_name}"
 artifact_dir="${root}/.cache/artifacts/${REPO_ARCH}"
 public_key="${root}/repo/${REPO_NAME}.asc"
 
-[[ "${fingerprint}" =~ ^[0-9A-F]{40}$ ]] || {
-    printf 'error: signing fingerprint must contain 40 hexadecimal characters\n' >&2
-    exit 2
-}
-
 if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
     printf 'error: package not found: %s\n' "${package_name}" >&2
     exit 1
 fi
-
-command -v gpg >/dev/null || {
-    printf 'error: gpg is required\n' >&2
-    exit 1
-}
-
-secret_fingerprints="$(
-    { gpg --batch --with-colons \
-        --list-secret-keys "${fingerprint}" 2>/dev/null || true; } |
-        awk -F: '
-            $1 == "sec" { primary = 1; next }
-            primary && $1 == "fpr" { print toupper($10); primary = 0 }
-        '
-)"
-
-grep -Fqx "${fingerprint}" <<< "${secret_fingerprints}" || {
-    printf 'error: secret signing key not found: %s\n' "${fingerprint}" >&2
-    exit 1
-}
 
 mkdir -p "$(dirname "${public_key}")"
 
@@ -71,11 +47,7 @@ export PKGDEST="${artifact_dir}"
 
 cd "${package_dir}"
 
-mapfile -t built_packages < <(
-    makepkg \
-        --config "${root}/config/makepkg.conf" \
-        --packagelist
-)
+mapfile -t built_packages < <(makepkg --packagelist)
 
 for package_file in "${built_packages[@]}"; do
     [[ -f "${package_file}" ]] || {

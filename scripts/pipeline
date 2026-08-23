@@ -10,12 +10,6 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 }
 
 package_name="$1"
-package_dir="${root}/packages/${package_name}"
-
-if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
-    printf 'error: package not found: %s\n' "${package_name}" >&2
-    exit 1
-fi
 
 "${root}/scripts/build" "${package_name}"
 "${root}/scripts/validate" "${package_name}"

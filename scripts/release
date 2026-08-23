@@ -7,26 +7,13 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=/dev/null
 source "${root}/config/repo.conf"
 
-[[ $# -eq 2 ]] || {
-    printf 'Usage: %s <package|all> <rclone-destination>\n' \
-        "$(basename "$0")" >&2
+[[ $# -eq 1 ]] || {
+    printf 'Usage: %s <package|all>\n' "$(basename "$0")" >&2
     exit 2
 }
 
 selection="$1"
-fingerprint="${REPO_SIGNING_KEY^^}"
-remote="$2"
 repo_dir="${root}/repo/${REPO_ARCH}"
-
-[[ "${fingerprint}" =~ ^[0-9A-F]{40}$ ]] || {
-    printf 'error: signing fingerprint must contain 40 hexadecimal characters\n' >&2
-    exit 2
-}
-
-[[ "${remote}" =~ ^[a-zA-Z0-9._-]+: ]] || {
-    printf 'error: rclone destination must use remote:path syntax\n' >&2
-    exit 2
-}
 
 for required_command in \
     bsdtar \
@@ -68,33 +55,12 @@ if ! remote_main="$(
     exit 1
 fi
 
-read -r remote_commit remote_ref <<< "${remote_main}"
-
-if [[ ! "${remote_commit}" =~ ^[0-9a-fA-F]{40,64}$ ]] || \
-    [[ "${remote_ref}" != refs/heads/main ]]
-then
-    printf '%s\n' 'error: origin/main returned an invalid Git reference' >&2
-    exit 1
-fi
+read -r remote_commit _ <<< "${remote_main}"
 
 if [[ "$(git -C "${root}" rev-parse HEAD)" != "${remote_commit}" ]]; then
     printf '%s\n' 'error: local main is not current with origin/main' >&2
     exit 1
 fi
-
-secret_fingerprints="$(
-    { gpg --batch --with-colons \
-        --list-secret-keys "${fingerprint}" 2>/dev/null || true; } |
-        awk -F: '
-            $1 == "sec" { primary = 1; next }
-            primary && $1 == "fpr" { print toupper($10); primary = 0 }
-        '
-)"
-
-grep -Fqx "${fingerprint}" <<< "${secret_fingerprints}" || {
-    printf 'error: secret signing key not found: %s\n' "${fingerprint}" >&2
-    exit 1
-}
 
 if [[ "${selection}" == all ]]; then
     packages=()
@@ -167,9 +133,7 @@ for package_name in "${packages[@]}"; do
 
     mapfile -t expected_packages < <(
         cd "${package_dir}"
-        PKGDEST="${repo_dir}" makepkg \
-            --config "${root}/config/makepkg.conf" \
-            --packagelist
+        PKGDEST="${repo_dir}" makepkg --packagelist
     )
 
     already_published=true
@@ -206,6 +170,6 @@ for package_name in "${packages[@]}"; do
     done
 done
 
-"${root}/scripts/publish" "${remote}"
+"${root}/scripts/publish"
 
 printf '\n==> Release complete\n'

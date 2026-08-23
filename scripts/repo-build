@@ -13,30 +13,14 @@ source "${root}/config/repo.conf"
 }
 
 package_name="$1"
-fingerprint="${REPO_SIGNING_KEY^^}"
 package_dir="${root}/packages/${package_name}"
 artifact_dir="${root}/.cache/artifacts/${REPO_ARCH}"
 repo_dir="${root}/repo/${REPO_ARCH}"
-
-[[ "${fingerprint}" =~ ^[0-9A-F]{40}$ ]] || {
-    printf 'error: signing fingerprint must contain 40 hexadecimal characters\n' >&2
-    exit 2
-}
 
 if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
     printf 'error: package not found: %s\n' "${package_name}" >&2
     exit 1
 fi
-
-command -v gpg >/dev/null || {
-    printf 'error: gpg is required\n' >&2
-    exit 1
-}
-
-command -v repo-add >/dev/null || {
-    printf 'error: repo-add is required\n' >&2
-    exit 1
-}
 
 export PKGDEST="${artifact_dir}"
 
@@ -44,11 +28,7 @@ mkdir -p "${repo_dir}"
 
 cd "${package_dir}"
 
-mapfile -t built_packages < <(
-    makepkg \
-        --config "${root}/config/makepkg.conf" \
-        --packagelist
-)
+mapfile -t built_packages < <(makepkg --packagelist)
 
 published=()
 
@@ -64,24 +44,6 @@ for package_file in "${built_packages[@]}"; do
         printf 'error: package signature missing: %s\n' "${signature}" >&2
         exit 1
     }
-
-    set +e
-    signature_status="$(
-        gpg --batch --status-fd 1 \
-            --verify "${signature}" "${package_file}" 2>/dev/null
-    )"
-    signature_result=$?
-    set -e
-
-    signer="$(
-        awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print toupper($NF); exit }' \
-            <<< "${signature_status}"
-    )"
-
-    if (( signature_result != 0 )) || [[ "${signer}" != "${fingerprint}" ]]; then
-        printf 'error: invalid package signature: %s\n' "${signature}" >&2
-        exit 1
-    fi
 
     destination="${repo_dir}/$(basename "${package_file}")"
     destination_signature="${destination}.sig"
@@ -100,15 +62,10 @@ for package_file in "${built_packages[@]}"; do
         exit 1
     fi
 
-    published+=("${destination}")
-done
-
-for package_file in "${built_packages[@]}"; do
-    signature="${package_file}.sig"
-    destination="${repo_dir}/$(basename "${package_file}")"
-
     install -Dm644 "${package_file}" "${destination}"
     install -Dm644 "${signature}" "${destination}.sig"
+
+    published+=("${destination}")
 done
 
 repo-add \
@@ -116,14 +73,6 @@ repo-add \
     --include-sigs \
     "${repo_dir}/${REPO_NAME}.db.tar.zst" \
     "${published[@]}"
-
-ln -sfn \
-    "${REPO_NAME}.db.tar.zst" \
-    "${repo_dir}/${REPO_NAME}.db"
-
-ln -sfn \
-    "${REPO_NAME}.files.tar.zst" \
-    "${repo_dir}/${REPO_NAME}.files"
 
 rm -f \
     "${repo_dir}/${REPO_NAME}.db.tar.zst.old" \

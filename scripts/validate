@@ -25,11 +25,7 @@ export PKGDEST="${artifact_dir}"
 
 cd "${package_dir}"
 
-mapfile -t built_packages < <(
-    makepkg \
-        --config "${root}/config/makepkg.conf" \
-        --packagelist
-)
+mapfile -t built_packages < <(makepkg --packagelist)
 
 failed=0
 
@@ -64,12 +60,18 @@ for package_file in "${built_packages[@]}"; do
         exit 1
     fi
 
-    validate_target "${package_file}"
+    artifact_name="$(
+        bsdtar -xOf "${package_file}" .PKGINFO |
+            awk -F ' = ' '$1 == "pkgname" { print $2; exit }'
+    )"
+
+    if [[ "${artifact_name}" == "${package_name}-debug" ]]; then
+        printf '==> Skipping generated debug package: %s\n' "${package_file}"
+    else
+        validate_target "${package_file}"
+    fi
 done
 
-#
-# Optional package-specific checks.
-#
 if [[ -x "${package_dir}/validate" ]]; then
     "${package_dir}/validate" "${built_packages[@]}"
 fi

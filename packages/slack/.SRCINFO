@@ -1,29 +1,40 @@
 pkgbase = slack
-	pkgdesc = Desktop client for team communication and collaboration
+	pkgdesc = Runtime installer for the official desktop client
 	pkgver = 4.51.191
-	pkgrel = 2
+	pkgrel = 4
 	url = https://slack.com/downloads/linux
 	arch = x86_64
-	license = LicenseRef-Slack
+	license = MIT
 	depends = alsa-lib
 	depends = at-spi2-core
+	depends = bash
+	depends = coreutils
+	depends = curl
 	depends = gtk3
 	depends = libappindicator
+	depends = libarchive
 	depends = libnotify
+	depends = libsecret
 	depends = libxkbfile
 	depends = libxss
 	depends = libxtst
 	depends = nss
-	depends = util-linux-libs
+	depends = util-linux
 	depends = xdg-utils
+	optdepends = org.freedesktop.secrets: credential storage
 	provides = slack-desktop=4.51.191
-	provides = slack-desktop-wayland=4.51.191
 	conflicts = slack-desktop
 	conflicts = slack-desktop-wayland
 	conflicts = slack-electron
 	noextract = slack-desktop-4.51.191-amd64.deb
 	options = !strip
+	source = slack-launcher
+	source = slack.desktop
+	source = LICENSE
 	source = slack-desktop-4.51.191-amd64.deb::https://downloads.slack-edge.com/desktop-releases/linux/x64/4.51.191/slack-desktop-4.51.191-amd64.deb
+	sha256sums = ae2c9b4a9f5a7f189599c016e6df2da65ce8572a34226c046790fd40d0a93326
+	sha256sums = ea789ecac98b78251940dbf0c3cd94db1141db92a8666188a5e26f25cdf5bd26
+	sha256sums = 6642f9005eabe54f989541fb8dec6251cf57dde29f3170f8b49e28069f6a55ec
 	sha256sums = 572474596216b635b69c4a72b42176a1d4d66f99e49e6267861aecdf3f79c1ed
 
 pkgname = slack

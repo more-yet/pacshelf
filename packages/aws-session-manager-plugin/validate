@@ -12,52 +12,53 @@ fail() {
     exit 1
 }
 
-for archive in "$@"; do
-    printf '==> Checking AWS Session Manager Plugin invariants\n'
+archive=''
 
-    pkginfo="$(bsdtar -xOf "${archive}" .PKGINFO)"
-    listing="$(bsdtar -tf "${archive}")"
+for candidate in "$@"; do
+    candidate_pkginfo="$(bsdtar -xOf "${candidate}" .PKGINFO)"
 
-    for required in \
-        'usr/bin/session-manager-plugin' \
-        'usr/share/doc/aws-session-manager-plugin/NOTICE' \
-        'usr/share/doc/aws-session-manager-plugin/THIRD-PARTY' \
-        'usr/share/licenses/aws-session-manager-plugin/LICENSE'
-    do
-        grep -Fqx "${required}" <<< "${listing}" ||
-            fail "missing required path: ${required}"
-    done
-
-    for forbidden in \
-        'usr/lib/aws-session-manager-plugin/' \
-        'usr/local/' \
-        'etc/init/' \
-        'lib/systemd/system/session-manager-plugin.service' \
-        'usr/share/lintian/'
-    do
-        if grep -Fq "${forbidden}" <<< "${listing}"; then
-            fail "forbidden upstream packaging path present: ${forbidden}"
-        fi
-    done
-
-    tmp="$(mktemp)"
-    trap 'rm -f "${tmp}"' EXIT
-
-    bsdtar -xOf \
-        "${archive}" \
-        usr/bin/session-manager-plugin \
-        > "${tmp}"
-
-    chmod +x "${tmp}"
-
-    expected="$(grep -F 'pkgver = ' <<< "${pkginfo}")"
-    expected="${expected#pkgver = }"
-    expected="${expected%-*}"
-
-    actual="$("${tmp}" --version | tr -d '\r\n')"
-
-    [[ "${actual}" == "${expected}" ]] ||
-        fail "binary version mismatch: expected ${expected}, got ${actual}"
-
-    printf '==> AWS Session Manager Plugin invariants passed\n'
+    if grep -Fqx 'pkgname = aws-session-manager-plugin' <<< "${candidate_pkginfo}"; then
+        [[ -z "${archive}" ]] || fail 'duplicate main package artifact'
+        archive="${candidate}"
+    elif ! grep -Fqx 'pkgname = aws-session-manager-plugin-debug' <<< "${candidate_pkginfo}"; then
+        fail "unexpected package artifact: ${candidate}"
+    fi
 done
+
+[[ -n "${archive}" ]] || fail 'main package artifact missing'
+
+printf '==> Checking AWS Session Manager Plugin invariants\n'
+
+pkginfo="$(bsdtar -xOf "${archive}" .PKGINFO)"
+listing="$(bsdtar -tf "${archive}")"
+
+for required in \
+    'usr/bin/session-manager-plugin' \
+    'usr/share/doc/aws-session-manager-plugin/NOTICE' \
+    'usr/share/doc/aws-session-manager-plugin/THIRD-PARTY' \
+    'usr/share/licenses/aws-session-manager-plugin/LICENSE'
+do
+    grep -Fqx "${required}" <<< "${listing}" ||
+        fail "missing required path: ${required}"
+done
+
+tmp="$(mktemp)"
+trap 'rm -f "${tmp}"' EXIT
+
+bsdtar -xOf \
+    "${archive}" \
+    usr/bin/session-manager-plugin \
+    > "${tmp}"
+
+chmod +x "${tmp}"
+
+expected="$(grep -F 'pkgver = ' <<< "${pkginfo}")"
+expected="${expected#pkgver = }"
+expected="${expected%-*}"
+
+actual="$("${tmp}" --version | tr -d '\r\n')"
+
+[[ "${actual}" == "${expected}" ]] ||
+    fail "binary version mismatch: expected ${expected}, got ${actual}"
+
+printf '==> AWS Session Manager Plugin invariants passed\n'

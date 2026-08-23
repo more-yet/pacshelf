@@ -4,12 +4,10 @@
 
 # Downloaded upstream sources
 *.deb
-*.rpm
 *.tar.gz
 
 # Built Arch packages
 *.pkg.tar.*
-*.src.tar.*
 
 # Build/source cache
 .cache/
@@ -19,9 +17,6 @@ repo/
 
 # Signatures generated during builds
 *.sig
-
-# Logs
-*.log
 
 # Editor files
 *.swp

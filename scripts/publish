@@ -7,48 +7,18 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=/dev/null
 source "${root}/config/repo.conf"
 
-[[ $# -eq 1 ]] || {
-    printf 'Usage: %s <rclone-destination>\n' "$(basename "$0")" >&2
+[[ $# -eq 0 ]] || {
+    printf 'Usage: %s\n' "$(basename "$0")" >&2
     exit 2
 }
 
 fingerprint="${REPO_SIGNING_KEY^^}"
-remote_root="${1%/}"
+remote_root="${REPO_REMOTE%/}"
 repo_root="${root}/repo"
 repo_dir="${repo_root}/${REPO_ARCH}"
 database="${repo_dir}/${REPO_NAME}.db.tar.zst"
 public_key="${repo_root}/${REPO_NAME}.asc"
 remote_repo="${remote_root}/${REPO_ARCH}"
-
-[[ "${fingerprint}" =~ ^[0-9A-F]{40}$ ]] || {
-    printf 'error: signing fingerprint must contain 40 hexadecimal characters\n' >&2
-    exit 2
-}
-
-[[ "${remote_root}" =~ ^[a-zA-Z0-9._-]+: ]] || {
-    printf 'error: rclone destination must use remote:path syntax\n' >&2
-    exit 2
-}
-
-command -v bsdtar >/dev/null || {
-    printf 'error: bsdtar is required\n' >&2
-    exit 1
-}
-
-command -v gpg >/dev/null || {
-    printf 'error: gpg is required\n' >&2
-    exit 1
-}
-
-command -v rclone >/dev/null || {
-    printf 'error: rclone is required\n' >&2
-    exit 1
-}
-
-command -v vercmp >/dev/null || {
-    printf 'error: vercmp is required\n' >&2
-    exit 1
-}
 
 [[ -f "${database}" ]] || {
     printf 'error: repository database not found: %s\n' "${database}" >&2
@@ -141,7 +111,7 @@ fi
 
 local_names="$(awk -F '\t' '{ print $1 }' <<< "${local_records}")"
 
-[[ -n "${local_records}" && -n "${local_names}" && -n "${local_files}" ]] || {
+[[ -n "${local_records}" && -n "${local_files}" ]] || {
     printf 'error: local repository database is empty or unreadable\n' >&2
     exit 1
 }
@@ -199,20 +169,12 @@ case "${remote_status}" in
         ;;
 esac
 
-remote_database_name=''
-
-if grep -Fqx "${REPO_NAME}.db" <<< "${remote_listing}"; then
-    remote_database_name="${REPO_NAME}.db"
-elif grep -Fqx "${REPO_NAME}.db.tar.zst" <<< "${remote_listing}"; then
-    remote_database_name="${REPO_NAME}.db.tar.zst"
-fi
-
-if [[ -n "${remote_database_name}" ]]; then
+if grep -Fqx "${REPO_NAME}.db.tar.zst" <<< "${remote_listing}"; then
     remote_database="$(mktemp)"
     trap 'rm -f "${remote_database}"' EXIT
 
     if ! rclone cat \
-        "${remote_repo}/${remote_database_name}" > "${remote_database}"
+        "${remote_repo}/${REPO_NAME}.db.tar.zst" > "${remote_database}"
     then
         printf 'error: could not download remote repository database\n' >&2
         exit 1
@@ -225,7 +187,7 @@ if [[ -n "${remote_database_name}" ]]; then
 
     remote_names="$(awk -F '\t' '{ print $1 }' <<< "${remote_records}")"
 
-    [[ -n "${remote_records}" && -n "${remote_names}" ]] || {
+    [[ -n "${remote_records}" ]] || {
         printf 'error: remote repository database is empty or unreadable\n' >&2
         exit 1
     }

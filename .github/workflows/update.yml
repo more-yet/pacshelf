@@ -74,8 +74,6 @@ jobs:
             cd '${GITHUB_WORKSPACE}'
 
             for package_dir in packages/*; do
-              [[ -d \"\${package_dir}\" ]] || continue
-
               package=\"\${package_dir##*/}\"
               ./scripts/update \"\${package}\"
             done
