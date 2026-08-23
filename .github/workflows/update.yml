@@ -39,6 +39,7 @@ jobs:
             git \
             nvchecker \
             pacman-contrib \
+            pyalpm \
             sudo
 
           useradd --create-home builder
