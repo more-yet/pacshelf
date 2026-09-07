@@ -30,9 +30,10 @@ pacman -Sl pacshelf
 sudo pacman -S <package>
 ```
 
-The `slack` package contains an open-source launcher. On first run it downloads
-the pinned Slack release directly from Slack, verifies it, and installs it in
-the current user's data directory; PacShelf does not distribute Slack binaries.
+The `slack` and `openai-chatgpt` packages contain open-source launchers. On
+first run, each downloads a pinned release directly from its vendor, verifies
+it, and installs it in the current user's data directory; PacShelf does not
+distribute the proprietary application binaries.
 
 ## Development
 
@@ -67,14 +68,15 @@ To publish only one package:
 ```
 
 Package updates are immutable, so bump `pkgrel` when changing a package without
-changing its upstream version.
+changing its upstream version. The release process retains the latest three
+versions of each package locally and remotely for bounded rollback history.
 
 GitHub Actions validates package changes and checks for upstream releases. The
-update workflow uses a repository-scoped GitHub App to open signed pull
-requests.
+update workflow uses a repository-scoped GitHub App to open pull requests with
+signed commits.
 
-For each verified update pull request, review the package changes, wait for
-validation to pass, and squash-merge it. Then publish from the release host:
+For each update pull request, review the package changes, wait for validation
+to pass, and squash-merge it. Then publish from the release host:
 
 ```bash
 git switch main

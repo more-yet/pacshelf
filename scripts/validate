@@ -5,6 +5,9 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # shellcheck source=/dev/null
+source "${root}/scripts/common"
+
+# shellcheck source=/dev/null
 source "${root}/config/repo.conf"
 
 [[ $# -eq 1 ]] || {
@@ -13,6 +16,9 @@ source "${root}/config/repo.conf"
 }
 
 package_name="$1"
+require_package_name "${package_name}"
+acquire_repository_lock "${root}"
+
 package_dir="${root}/packages/${package_name}"
 artifact_dir="${root}/.cache/artifacts/${REPO_ARCH}"
 
@@ -25,7 +31,22 @@ export PKGDEST="${artifact_dir}"
 
 cd "${package_dir}"
 
-mapfile -t built_packages < <(makepkg --packagelist)
+if ! package_list="$(
+    makepkg --packagelist |
+        bounded_lines "${REPO_MAX_PACKAGE_ARTIFACTS}"
+)"; then
+    printf 'error: could not enumerate package artifacts: %s\n' \
+        "${package_name}" >&2
+    exit 1
+fi
+
+[[ -n "${package_list}" ]] || {
+    printf 'error: package has no artifact paths: %s\n' \
+        "${package_name}" >&2
+    exit 1
+}
+
+mapfile -t built_packages <<< "${package_list}"
 
 failed=0
 
@@ -55,7 +76,7 @@ validate_target() {
 validate_target PKGBUILD
 
 for package_file in "${built_packages[@]}"; do
-    if [[ ! -f "${package_file}" ]]; then
+    if [[ ! -f "${package_file}" || -L "${package_file}" ]]; then
         printf 'error: artifact missing: %s\n' "${package_file}" >&2
         exit 1
     fi

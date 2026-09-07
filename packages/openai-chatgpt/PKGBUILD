@@ -1,0 +1,112 @@
+# Maintainer: Aditya Singh
+
+pkgname=openai-chatgpt
+pkgver=26.901.51231
+pkgrel=1
+
+pkgdesc='Runtime installer for the official ChatGPT desktop app'
+arch=('x86_64')
+url='https://developers.openai.com/codex/linux/linux-app'
+license=('MIT')
+
+depends=(
+    'alsa-lib'
+    'at-spi2-core'
+    'bash'
+    'cairo'
+    'coreutils'
+    'curl'
+    'dbus'
+    'expat'
+    'gcc-libs'
+    'gdk-pixbuf2'
+    'glib2'
+    'glibc'
+    'gtk3'
+    'libarchive'
+    'libcups'
+    'libdrm'
+    'libglvnd'
+    'libnotify'
+    'libusb'
+    'libx11'
+    'libxcb'
+    'libxcomposite'
+    'libxdamage'
+    'libxext'
+    'libxfixes'
+    'libxkbcommon'
+    'libxrandr'
+    'mesa'
+    'nss'
+    'pango'
+    'systemd-libs'
+    'util-linux'
+    'xdg-utils'
+)
+
+optdepends=(
+    'git: local project version control'
+    'org.freedesktop.secrets: credential storage'
+    'vulkan-driver: hardware-accelerated Vulkan rendering'
+)
+
+provides=("chatgpt=${pkgver}")
+conflicts=('chatgpt')
+
+_packages="chatgpt-packages-${pkgver}"
+_packages_url='https://persistent.oaistatic.com/codex-app-prod/linux/deb/dists/stable/main/binary-amd64/Packages'
+
+source=(
+    'chatgpt-launcher'
+    'chatgpt.desktop'
+    'LICENSE'
+    "${_packages}::${_packages_url}"
+)
+
+sha256sums=(
+    '773b4a9ad4c741a2631fb2025ab0557348a7383ac52b3d9d3f843bd0bc1565b6'
+    '314abf317aaefebf47963356029f55319f5e43936848c270d0ad2c691d9edc1a'
+    '6642f9005eabe54f989541fb8dec6251cf57dde29f3170f8b49e28069f6a55ec'
+    'eafd3c2c8b95c1d78820c782851133b9ede5dff8f683e2d1d9e1dde39cee2a5d'
+)
+
+package() {
+    local deb_path deb_sha256 deb_size index_version release_file
+
+    index_version="$(awk '$1 == "Version:" { print $2 }' "${_packages}")"
+    deb_path="$(awk '$1 == "Filename:" { print $2 }' "${_packages}")"
+    deb_sha256="$(awk '$1 == "SHA256:" { print $2 }' "${_packages}")"
+    deb_size="$(awk '$1 == "Size:" { print $2 }' "${_packages}")"
+
+    [[ "${index_version}" == "${pkgver}" ]] || {
+        printf 'error: package index version does not match pkgver\n' >&2
+        return 1
+    }
+    [[ "${deb_path}" == "pool/main/c/chatgpt/chatgpt_${pkgver}_amd64.deb" ]] || {
+        printf 'error: package index contains an unexpected filename\n' >&2
+        return 1
+    }
+    [[ "${deb_sha256}" =~ ^[[:xdigit:]]{64}$ && "${deb_size}" =~ ^[0-9]+$ ]] || {
+        printf 'error: package index contains invalid integrity metadata\n' >&2
+        return 1
+    }
+    (( deb_size > 0 && deb_size <= 629145600 )) || {
+        printf 'error: ChatGPT package exceeds the download size limit\n' >&2
+        return 1
+    }
+
+    install -Dm755 chatgpt-launcher "${pkgdir}/usr/bin/chatgpt"
+    install -Dm644 chatgpt.desktop "${pkgdir}/usr/share/applications/chatgpt.desktop"
+    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
+    release_file="${pkgdir}/usr/share/chatgpt-launcher/release"
+    install -dm755 "$(dirname "${release_file}")"
+    printf 'CHATGPT_VERSION=%q\nCHATGPT_URL=%q\nCHATGPT_SHA256=%q\nCHATGPT_SIZE=%q\n' \
+        "${pkgver}" \
+        "https://persistent.oaistatic.com/codex-app-prod/linux/deb/${deb_path}" \
+        "${deb_sha256}" \
+        "${deb_size}" \
+        > "${release_file}"
+    chmod 0644 "${release_file}"
+}

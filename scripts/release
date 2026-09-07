@@ -5,6 +5,9 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # shellcheck source=/dev/null
+source "${root}/scripts/common"
+
+# shellcheck source=/dev/null
 source "${root}/config/repo.conf"
 
 [[ $# -eq 1 ]] || {
@@ -31,6 +34,8 @@ do
         exit 1
     }
 done
+
+acquire_repository_lock "${root}"
 
 if ! current_branch="$(git -C "${root}" symbolic-ref --quiet --short HEAD)"; then
     printf '%s\n' 'error: releases cannot run from a detached HEAD' >&2
@@ -70,10 +75,7 @@ if [[ "${selection}" == all ]]; then
         packages+=("$(basename "${package_dir}")")
     done
 else
-    [[ "${selection}" =~ ^[a-zA-Z0-9@._+-]+$ ]] || {
-        printf 'error: invalid package name: %s\n' "${selection}" >&2
-        exit 2
-    }
+    require_package_name "${selection}"
 
     [[ -f "${root}/packages/${selection}/PKGBUILD" ]] || {
         printf 'error: package not found: %s\n' "${selection}" >&2
@@ -88,22 +90,42 @@ fi
     exit 1
 }
 
-mkdir -p "${root}/.cache"
-
-exec 9> "${root}/.cache/release.lock"
-
-flock -n 9 || {
-    printf 'error: another release is already running\n' >&2
-    exit 1
-}
-
 mkdir -p "${repo_dir}"
 
 database_files=''
 
+if [[ -L "${repo_dir}/${REPO_NAME}.db.tar.zst" ]]; then
+    printf 'error: repository database must not be a symlink\n' >&2
+    exit 1
+fi
+
 if [[ -f "${repo_dir}/${REPO_NAME}.db.tar.zst" ]]; then
+    database_size="$(
+        stat --format='%s' "${repo_dir}/${REPO_NAME}.db.tar.zst"
+    )"
+
+    (( database_size <= REPO_MAX_DATABASE_BYTES )) || {
+        printf 'error: local repository database exceeds size limit\n' >&2
+        exit 1
+    }
+
+    if ! database_entries="$(
+        bounded_archive_listing \
+            "${repo_dir}/${REPO_NAME}.db.tar.zst" \
+            "${REPO_MAX_DATABASE_ENTRIES}"
+    )"; then
+        printf 'error: local repository database is unreadable\n' >&2
+        exit 1
+    fi
+
+    database_record_count=0
+
     while IFS= read -r entry; do
         [[ "${entry}" == */desc ]] || continue
+        (( ++database_record_count <= REPO_MAX_PACKAGE_RECORDS )) || {
+            printf 'error: local repository database exceeds record limit\n' >&2
+            exit 1
+        }
 
         package_file="$(
             bsdtar -xOf \
@@ -118,9 +140,13 @@ if [[ -f "${repo_dir}/${REPO_NAME}.db.tar.zst" ]]; then
             printf 'error: local repository database is unreadable\n' >&2
             exit 1
         }
+        [[ "${package_file}" == "$(basename "${package_file}")" ]] || {
+            printf 'error: local repository database contains an invalid filename\n' >&2
+            exit 1
+        }
 
         database_files+="${package_file}"$'\n'
-    done < <(bsdtar -tf "${repo_dir}/${REPO_NAME}.db.tar.zst")
+    done <<< "${database_entries}"
 
     [[ -n "${database_files}" ]] || {
         printf 'error: local repository database is empty or unreadable\n' >&2
@@ -131,10 +157,23 @@ fi
 for package_name in "${packages[@]}"; do
     package_dir="${root}/packages/${package_name}"
 
-    mapfile -t expected_packages < <(
+    if ! package_list="$(
         cd "${package_dir}"
-        PKGDEST="${repo_dir}" makepkg --packagelist
-    )
+        PKGDEST="${repo_dir}" makepkg --packagelist |
+            bounded_lines "${REPO_MAX_PACKAGE_ARTIFACTS}"
+    )"; then
+        printf 'error: could not enumerate package artifacts: %s\n' \
+            "${package_name}" >&2
+        exit 1
+    fi
+
+    [[ -n "${package_list}" ]] || {
+        printf 'error: package has no artifact paths: %s\n' \
+            "${package_name}" >&2
+        exit 1
+    }
+
+    mapfile -t expected_packages <<< "${package_list}"
 
     already_published=true
 

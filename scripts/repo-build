@@ -5,6 +5,9 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # shellcheck source=/dev/null
+source "${root}/scripts/common"
+
+# shellcheck source=/dev/null
 source "${root}/config/repo.conf"
 
 [[ $# -eq 1 ]] || {
@@ -13,9 +16,14 @@ source "${root}/config/repo.conf"
 }
 
 package_name="$1"
+require_package_name "${package_name}"
+acquire_repository_lock "${root}"
+
 package_dir="${root}/packages/${package_name}"
 artifact_dir="${root}/.cache/artifacts/${REPO_ARCH}"
 repo_dir="${root}/repo/${REPO_ARCH}"
+database="${repo_dir}/${REPO_NAME}.db.tar.zst"
+files_database="${repo_dir}/${REPO_NAME}.files.tar.zst"
 
 if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
     printf 'error: package not found: %s\n' "${package_name}" >&2
@@ -28,19 +36,41 @@ mkdir -p "${repo_dir}"
 
 cd "${package_dir}"
 
-mapfile -t built_packages < <(makepkg --packagelist)
+if ! package_list="$(
+    makepkg --packagelist |
+        bounded_lines "${REPO_MAX_PACKAGE_ARTIFACTS}"
+)"; then
+    printf 'error: could not enumerate package artifacts: %s\n' \
+        "${package_name}" >&2
+    exit 1
+fi
 
-published=()
+[[ -n "${package_list}" ]] || {
+    printf 'error: package has no artifact paths: %s\n' \
+        "${package_name}" >&2
+    exit 1
+}
+
+mapfile -t built_packages <<< "${package_list}"
+
+destinations=()
 
 for package_file in "${built_packages[@]}"; do
-    [[ -f "${package_file}" ]] || {
+    [[ -f "${package_file}" && ! -L "${package_file}" ]] || {
         printf 'error: artifact missing: %s\n' "${package_file}" >&2
+        exit 1
+    }
+
+    package_size="$(stat --format='%s' "${package_file}")"
+    (( package_size <= REPO_MAX_ARTIFACT_BYTES )) || {
+        printf 'error: package artifact exceeds size limit: %s\n' \
+            "${package_file}" >&2
         exit 1
     }
 
     signature="${package_file}.sig"
 
-    [[ -f "${signature}" ]] || {
+    [[ -f "${signature}" && ! -L "${signature}" ]] || {
         printf 'error: package signature missing: %s\n' "${signature}" >&2
         exit 1
     }
@@ -48,9 +78,21 @@ for package_file in "${built_packages[@]}"; do
     destination="${repo_dir}/$(basename "${package_file}")"
     destination_signature="${destination}.sig"
 
+    [[ ! -L "${destination}" ]] || {
+        printf 'error: published artifact must not be a symlink: %s\n' \
+            "${destination}" >&2
+        exit 1
+    }
+
     if [[ -e "${destination}" ]] && ! cmp -s "${package_file}" "${destination}"; then
         printf 'error: refusing to replace published artifact: %s\n' \
             "${destination}" >&2
+        exit 1
+    fi
+
+    if [[ -L "${destination_signature}" ]]; then
+        printf 'error: published signature must not be a symlink: %s\n' \
+            "${destination_signature}" >&2
         exit 1
     fi
 
@@ -62,20 +104,72 @@ for package_file in "${built_packages[@]}"; do
         exit 1
     fi
 
-    install -Dm644 "${package_file}" "${destination}"
-    install -Dm644 "${signature}" "${destination}.sig"
-
-    published+=("${destination}")
+    destinations+=("${destination}")
 done
+
+staging="$(mktemp -d "${repo_dir}/.repo-build.XXXXXX")"
+trap 'rm -rf "${staging}"' EXIT
+
+if [[ -f "${database}" ]]; then
+    install -Dm644 "${database}" "${staging}/${REPO_NAME}.db.tar.zst"
+fi
+if [[ -f "${files_database}" ]]; then
+    install -Dm644 \
+        "${files_database}" \
+        "${staging}/${REPO_NAME}.files.tar.zst"
+fi
 
 repo-add \
     --prevent-downgrade \
     --include-sigs \
-    "${repo_dir}/${REPO_NAME}.db.tar.zst" \
-    "${published[@]}"
+    "${staging}/${REPO_NAME}.db.tar.zst" \
+    "${built_packages[@]}"
+
+database_size="$(
+    stat --format='%s' "${staging}/${REPO_NAME}.db.tar.zst"
+)"
+files_database_size="$(
+    stat --format='%s' "${staging}/${REPO_NAME}.files.tar.zst"
+)"
+if (( database_size > REPO_MAX_DATABASE_BYTES ||
+    files_database_size > REPO_MAX_DATABASE_BYTES )); then
+    printf 'error: repository database exceeds size limit\n' >&2
+    exit 1
+fi
+
+if ! database_entries="$(
+    bounded_archive_listing \
+        "${staging}/${REPO_NAME}.db.tar.zst" \
+        "${REPO_MAX_DATABASE_ENTRIES}"
+)"; then
+    printf 'error: generated repository database is unreadable\n' >&2
+    exit 1
+fi
+
+database_record_count="$(
+    awk '$0 ~ /\/desc$/ { count++ } END { print count + 0 }' \
+        <<< "${database_entries}"
+)"
+(( database_record_count > 0 &&
+    database_record_count <= REPO_MAX_PACKAGE_RECORDS )) || {
+    printf 'error: generated repository database exceeds record limit\n' >&2
+    exit 1
+}
+
+for (( i = 0; i < ${#built_packages[@]}; i++ )); do
+    install -Dm644 "${built_packages[i]}" "${destinations[i]}"
+    install -Dm644 "${built_packages[i]}.sig" "${destinations[i]}.sig"
+done
+
+mv -f "${staging}/${REPO_NAME}.files.tar.zst" "${files_database}"
+mv -f "${staging}/${REPO_NAME}.db.tar.zst" "${database}"
+ln -sfn "${REPO_NAME}.files.tar.zst" "${repo_dir}/${REPO_NAME}.files"
+ln -sfn "${REPO_NAME}.db.tar.zst" "${repo_dir}/${REPO_NAME}.db"
 
 rm -f \
     "${repo_dir}/${REPO_NAME}.db.tar.zst.old" \
     "${repo_dir}/${REPO_NAME}.files.tar.zst.old"
+
+"${root}/scripts/prune" repo
 
 printf '==> Repository updated: %s\n' "${REPO_NAME}"

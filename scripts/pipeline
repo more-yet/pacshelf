@@ -4,12 +4,17 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# shellcheck source=/dev/null
+source "${root}/scripts/common"
+
 [[ $# -eq 1 ]] || {
     printf 'Usage: %s <package>\n' "$(basename "$0")" >&2
     exit 2
 }
 
 package_name="$1"
+require_package_name "${package_name}"
+acquire_repository_lock "${root}"
 
 "${root}/scripts/build" "${package_name}"
 "${root}/scripts/validate" "${package_name}"

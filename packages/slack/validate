@@ -40,6 +40,15 @@ desktop="$(bsdtar -xOf "${archive}" usr/share/applications/slack.desktop)"
 grep -Fqx 'Exec=slack %U' <<< "${desktop}" ||
     fail 'unexpected desktop launcher command'
 
+release="$(bsdtar -xOf "${archive}" usr/share/slack-launcher/release)"
+grep -Eq '^SLACK_SHA256=[[:xdigit:]]{64}$' <<< "${release}" ||
+    fail 'release manifest lacks a pinned checksum'
+grep -Eq '^SLACK_SIZE=[0-9]+$' <<< "${release}" ||
+    fail 'release manifest lacks a pinned size'
+release_size="$(awk -F= '$1 == "SLACK_SIZE" { print $2 }' <<< "${release}")"
+(( release_size > 0 && release_size <= 314572800 )) ||
+    fail 'release manifest exceeds the download size limit'
+
 launcher="$(mktemp)"
 trap 'rm -f "${launcher}"' EXIT
 bsdtar -xOf "${archive}" usr/bin/slack > "${launcher}"

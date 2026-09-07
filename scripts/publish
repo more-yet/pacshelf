@@ -5,12 +5,17 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # shellcheck source=/dev/null
+source "${root}/scripts/common"
+
+# shellcheck source=/dev/null
 source "${root}/config/repo.conf"
 
 [[ $# -eq 0 ]] || {
     printf 'Usage: %s\n' "$(basename "$0")" >&2
     exit 2
 }
+
+acquire_repository_lock "${root}"
 
 fingerprint="${REPO_SIGNING_KEY^^}"
 remote_root="${REPO_REMOTE%/}"
@@ -20,23 +25,36 @@ database="${repo_dir}/${REPO_NAME}.db.tar.zst"
 public_key="${repo_root}/${REPO_NAME}.asc"
 remote_repo="${remote_root}/${REPO_ARCH}"
 
-[[ -f "${database}" ]] || {
+[[ -f "${database}" && ! -L "${database}" ]] || {
     printf 'error: repository database not found: %s\n' "${database}" >&2
     exit 1
 }
 
-[[ -f "${public_key}" ]] || {
+[[ -f "${public_key}" && ! -L "${public_key}" ]] || {
     printf 'error: repository public key not found: %s\n' "${public_key}" >&2
     exit 1
 }
 
+database_size="$(stat --format='%s' "${database}")"
+(( database_size <= REPO_MAX_DATABASE_BYTES )) || {
+    printf 'error: local repository database exceeds size limit\n' >&2
+    exit 1
+}
+
+if ! key_listing="$(
+    gpg --batch --with-colons --show-keys "${public_key}" 2>&1
+)"; then
+    printf 'error: could not read repository public key: %s\n' \
+        "${public_key}" >&2
+    printf '%s\n' "${key_listing}" >&2
+    exit 1
+fi
+
 key_fingerprints="$(
-    { gpg --batch --with-colons \
-        --show-keys "${public_key}" 2>/dev/null || true; } |
-        awk -F: '
-            $1 == "pub" { primary = 1; next }
-            primary && $1 == "fpr" { print toupper($10); primary = 0 }
-        '
+    awk -F: '
+        $1 == "pub" { primary = 1; next }
+        primary && $1 == "fpr" { print toupper($10); primary = 0 }
+    ' <<< "${key_listing}"
 )"
 
 grep -Fqx "${fingerprint}" <<< "${key_fingerprints}" || {
@@ -49,10 +67,19 @@ database_field() {
     local source_database="$1"
     local field="$2"
     local entry
+    local entries
+    local record_count=0
     local value
+
+    entries="$(
+        bounded_archive_listing \
+            "${source_database}" \
+            "${REPO_MAX_DATABASE_ENTRIES}"
+    )" || return 1
 
     while IFS= read -r entry; do
         [[ "${entry}" == */desc ]] || continue
+        (( ++record_count <= REPO_MAX_PACKAGE_RECORDS )) || return 1
 
         value="$(
             bsdtar -xOf "${source_database}" "${entry}" |
@@ -63,17 +90,26 @@ database_field() {
 
         [[ -n "${value}" ]] || return 1
         printf '%s\n' "${value}"
-    done < <(bsdtar -tf "${source_database}")
+    done <<< "${entries}"
 }
 
 database_records() {
     local source_database="$1"
     local entry
+    local entries
     local package_name
     local package_version
+    local record_count=0
+
+    entries="$(
+        bounded_archive_listing \
+            "${source_database}" \
+            "${REPO_MAX_DATABASE_ENTRIES}"
+    )" || return 1
 
     while IFS= read -r entry; do
         [[ "${entry}" == */desc ]] || continue
+        (( ++record_count <= REPO_MAX_PACKAGE_RECORDS )) || return 1
 
         package_name="$(
             bsdtar -xOf "${source_database}" "${entry}" |
@@ -91,7 +127,39 @@ database_records() {
 
         [[ -n "${package_name}" && -n "${package_version}" ]] || return 1
         printf '%s\t%s\n' "${package_name}" "${package_version}"
-    done < <(bsdtar -tf "${source_database}")
+    done <<< "${entries}"
+}
+
+verify_package_signature() {
+    local artifact="$1"
+    local signature="${artifact}.sig"
+    local signature_status
+    local signer
+
+    [[ -f "${signature}" && ! -L "${signature}" ]] || {
+        printf 'error: package signature missing: %s\n' "${signature}" >&2
+        return 1
+    }
+
+    if ! signature_status="$(
+        gpg --batch --status-fd 1 \
+            --verify "${signature}" "${artifact}" 2>/dev/null
+    )"; then
+        printf 'error: invalid repository package signature: %s\n' \
+            "${signature}" >&2
+        return 1
+    fi
+
+    signer="$(
+        awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print toupper($NF); exit }' \
+            <<< "${signature_status}"
+    )"
+
+    [[ "${signer}" == "${fingerprint}" ]] || {
+        printf 'error: package signature is not valid for %s: %s\n' \
+            "${fingerprint}" "${signature}" >&2
+        return 1
+    }
 }
 
 if ! local_records="$(database_records "${database}" | sort -u)"; then
@@ -117,10 +185,16 @@ local_names="$(awk -F '\t' '{ print $1 }' <<< "${local_records}")"
 }
 
 while IFS= read -r package_file; do
+    [[ "${package_file}" == "$(basename "${package_file}")" ]] || {
+        printf 'error: database contains an invalid artifact filename: %s\n' \
+            "${package_file}" >&2
+        exit 1
+    }
+
     artifact="${repo_dir}/${package_file}"
     signature="${artifact}.sig"
 
-    [[ -f "${artifact}" ]] || {
+    [[ -f "${artifact}" && ! -L "${artifact}" ]] || {
         printf 'error: database advertises missing artifact: %s\n' "${artifact}" >&2
         exit 1
     }
@@ -130,28 +204,18 @@ while IFS= read -r package_file; do
         exit 1
     }
 
-    set +e
-    signature_status="$(
-        gpg --batch --status-fd 1 \
-            --verify "${signature}" "${artifact}" 2>/dev/null
-    )"
-    signature_result=$?
-    set -e
-
-    signer="$(
-        awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print toupper($NF); exit }' \
-            <<< "${signature_status}"
-    )"
-
-    if (( signature_result != 0 )) || [[ "${signer}" != "${fingerprint}" ]]; then
-        printf 'error: invalid repository package signature: %s\n' \
-            "${signature}" >&2
-        exit 1
-    fi
+    verify_package_signature "${artifact}" || exit 1
 done <<< "${local_files}"
 
 set +e
-remote_listing="$(rclone lsf "${remote_repo}/" 2>&1)"
+remote_listing="$(
+    rclone lsf "${remote_repo}/" --max-depth 1 --files-only 2>&1 |
+        LC_ALL=C awk -v max_bytes="${REPO_MAX_REMOTE_LISTING_BYTES}" '
+            { bytes += length($0) + 1 }
+            bytes > max_bytes { exit 1 }
+            { print }
+        '
+)"
 remote_status=$?
 set -e
 
@@ -169,16 +233,37 @@ case "${remote_status}" in
         ;;
 esac
 
-if grep -Fqx "${REPO_NAME}.db.tar.zst" <<< "${remote_listing}"; then
-    remote_database="$(mktemp)"
-    trap 'rm -f "${remote_database}"' EXIT
+(( ${#remote_listing} <= REPO_MAX_REMOTE_LISTING_BYTES )) || {
+    printf 'error: remote repository listing exceeds size limit\n' >&2
+    exit 1
+}
 
-    if ! rclone cat \
-        "${remote_repo}/${REPO_NAME}.db.tar.zst" > "${remote_database}"
+if grep -Fqx "${REPO_NAME}.db.tar.zst" <<< "${remote_listing}"; then
+    remote_database_dir="$(mktemp -d)"
+    remote_database="${remote_database_dir}/${REPO_NAME}.db.tar.zst"
+    trap 'rm -rf "${remote_database_dir}"' EXIT
+
+    if ! rclone copy \
+        "${remote_repo}" \
+        "${remote_database_dir}" \
+        --max-depth 1 \
+        --include "${REPO_NAME}.db.tar.zst" \
+        --max-size "${REPO_MAX_DATABASE_BYTES}B"
     then
         printf 'error: could not download remote repository database\n' >&2
         exit 1
     fi
+
+    [[ -f "${remote_database}" ]] || {
+        printf 'error: remote repository database exceeds size limit\n' >&2
+        exit 1
+    }
+
+    remote_database_size="$(stat --format='%s' "${remote_database}")"
+    (( remote_database_size > 0 && remote_database_size <= REPO_MAX_DATABASE_BYTES )) || {
+        printf 'error: remote repository database exceeds size limit\n' >&2
+        exit 1
+    }
 
     if ! remote_records="$(database_records "${remote_database}" | sort -u)"; then
         printf 'error: remote repository database is unreadable\n' >&2
@@ -227,6 +312,26 @@ if grep -Fqx "${REPO_NAME}.db.tar.zst" <<< "${remote_listing}"; then
     done <<< "${remote_records}"
 fi
 
+shopt -s nullglob
+retained_artifacts=("${repo_dir}"/*.pkg.tar.*)
+shopt -u nullglob
+
+for artifact in "${retained_artifacts[@]}"; do
+    [[ "${artifact}" != *.sig ]] || continue
+    [[ ! -L "${artifact}" ]] || {
+        printf 'error: retained artifact must not be a symlink: %s\n' \
+            "${artifact}" >&2
+        exit 1
+    }
+    artifact_size="$(stat --format='%s' "${artifact}")"
+    (( artifact_size <= REPO_MAX_ARTIFACT_BYTES )) || {
+        printf 'error: retained artifact exceeds size limit: %s\n' \
+            "${artifact}" >&2
+        exit 1
+    }
+    verify_package_signature "${artifact}" || exit 1
+done
+
 printf '==> Publishing public key\n'
 
 rclone copyto \
@@ -241,9 +346,9 @@ if ! rclone copy \
     "${repo_dir}" \
     "${remote_repo}" \
     --checksum \
-    --copy-links \
-    --exclude "${REPO_NAME}.db*" \
-    --exclude "${REPO_NAME}.files*" \
+    --include '*.pkg.tar.*' \
+    --max-size "${REPO_MAX_ARTIFACT_BYTES}B" \
+    --max-transfer "${REPO_MAX_UPLOAD_BYTES}B" \
     --immutable
 then
     printf '%s\n' \
@@ -261,5 +366,23 @@ rclone copy \
     --filter "+ ${REPO_NAME}.db*" \
     --filter "+ ${REPO_NAME}.files*" \
     --filter '- *'
+
+printf '==> Pruning remote package history\n'
+
+if ! rclone sync \
+    "${repo_dir}" \
+    "${remote_repo}" \
+    --checksum \
+    --immutable \
+    --check-first \
+    --max-transfer "${REPO_MAX_UPLOAD_BYTES}B" \
+    --max-delete "${REPO_MAX_REMOTE_DELETES}" \
+    --max-delete-size "${REPO_MAX_REMOTE_DELETE_BYTES}B" \
+    --include '*.pkg.tar.*'
+then
+    printf '%s\n' \
+        'error: repository published but remote artifact pruning failed' >&2
+    exit 1
+fi
 
 printf '==> Published: %s/%s\n' "${REPO_BASE_URL}" "${REPO_ARCH}"
