@@ -5,6 +5,9 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # shellcheck source=/dev/null
+source "${root}/scripts/common"
+
+# shellcheck source=/dev/null
 source "${root}/config/repo.conf"
 
 [[ $# -eq 1 ]] || {
@@ -13,10 +16,19 @@ source "${root}/config/repo.conf"
 }
 
 package_name="$1"
+require_package_name "${package_name}"
+acquire_repository_lock "${root}"
+
 fingerprint="${REPO_SIGNING_KEY^^}"
 package_dir="${root}/packages/${package_name}"
 artifact_dir="${root}/.cache/artifacts/${REPO_ARCH}"
 public_key="${root}/repo/${REPO_NAME}.asc"
+
+[[ ! -L "${public_key}" ]] || {
+    printf 'error: repository public key must not be a symlink: %s\n' \
+        "${public_key}" >&2
+    exit 1
+}
 
 if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
     printf 'error: package not found: %s\n' "${package_name}" >&2
@@ -47,15 +59,36 @@ export PKGDEST="${artifact_dir}"
 
 cd "${package_dir}"
 
-mapfile -t built_packages < <(makepkg --packagelist)
+if ! package_list="$(
+    makepkg --packagelist |
+        bounded_lines "${REPO_MAX_PACKAGE_ARTIFACTS}"
+)"; then
+    printf 'error: could not enumerate package artifacts: %s\n' \
+        "${package_name}" >&2
+    exit 1
+fi
+
+[[ -n "${package_list}" ]] || {
+    printf 'error: package has no artifact paths: %s\n' \
+        "${package_name}" >&2
+    exit 1
+}
+
+mapfile -t built_packages <<< "${package_list}"
 
 for package_file in "${built_packages[@]}"; do
-    [[ -f "${package_file}" ]] || {
+    [[ -f "${package_file}" && ! -L "${package_file}" ]] || {
         printf 'error: artifact missing: %s\n' "${package_file}" >&2
         exit 1
     }
 
     signature="${package_file}.sig"
+
+    [[ ! -L "${signature}" ]] || {
+        printf 'error: package signature must not be a symlink: %s\n' \
+            "${signature}" >&2
+        exit 1
+    }
 
     if [[ ! -e "${signature}" ]]; then
         signature_tmp="$(mktemp "${signature}.tmp.XXXXXX")"

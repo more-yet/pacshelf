@@ -5,6 +5,9 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # shellcheck source=/dev/null
+source "${root}/scripts/common"
+
+# shellcheck source=/dev/null
 source "${root}/config/repo.conf"
 
 [[ $# -eq 1 ]] || {
@@ -13,6 +16,9 @@ source "${root}/config/repo.conf"
 }
 
 package_name="$1"
+require_package_name "${package_name}"
+acquire_repository_lock "${root}"
+
 package_dir="${root}/packages/${package_name}"
 
 cache_dir="${root}/.cache"
@@ -56,19 +62,40 @@ makepkg \
     --clean \
     --force
 
-mapfile -t built_packages < <(makepkg --packagelist)
-
-if (( ${#built_packages[@]} == 0 )); then
-    printf 'error: no packages produced\n' >&2
+if ! package_list="$(
+    makepkg --packagelist |
+        bounded_lines "${REPO_MAX_PACKAGE_ARTIFACTS}"
+)"; then
+    printf 'error: could not enumerate package artifacts: %s\n' \
+        "${package_name}" >&2
     exit 1
 fi
 
+[[ -n "${package_list}" ]] || {
+    printf 'error: package produced no artifact paths: %s\n' \
+        "${package_name}" >&2
+    exit 1
+}
+
+mapfile -t built_packages <<< "${package_list}"
+
 for package_file in "${built_packages[@]}"; do
-    [[ -f "${package_file}" ]] || {
+    [[ -f "${package_file}" && ! -L "${package_file}" ]] || {
         printf 'error: expected artifact missing: %s\n' \
             "${package_file}" >&2
         exit 1
     }
 
+    package_size="$(stat --format='%s' "${package_file}")"
+    (( package_size <= REPO_MAX_ARTIFACT_BYTES )) || {
+        rm -f "${package_file}" "${package_file}.sig"
+        printf 'error: package artifact exceeds size limit: %s\n' \
+            "${package_file}" >&2
+        exit 1
+    }
+
+    rm -f "${package_file}.sig"
     printf '==> Built: %s\n' "${package_file}"
 done
+
+"${root}/scripts/prune" cache "${built_packages[@]}"

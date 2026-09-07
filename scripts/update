@@ -4,12 +4,18 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# shellcheck source=/dev/null
+source "${root}/scripts/common"
+
 [[ $# -eq 1 ]] || {
     printf 'Usage: %s <package>\n' "$(basename "$0")" >&2
     exit 2
 }
 
 package_name="$1"
+require_package_name "${package_name}"
+acquire_repository_lock "${root}"
+
 package_dir="${root}/packages/${package_name}"
 
 if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
@@ -54,6 +60,12 @@ pkgctl version upgrade -v
 
 printf '==> Regenerating .SRCINFO\n'
 
-makepkg --printsrcinfo > .SRCINFO
+srcinfo_tmp="$(mktemp "${package_dir}/.SRCINFO.tmp.XXXXXX")"
+trap 'rm -f "${srcinfo_tmp}"' EXIT
+
+makepkg --printsrcinfo > "${srcinfo_tmp}"
+chmod 0644 "${srcinfo_tmp}"
+mv "${srcinfo_tmp}" .SRCINFO
+srcinfo_tmp=''
 
 printf '==> Updated: %s\n' "${package_name}"

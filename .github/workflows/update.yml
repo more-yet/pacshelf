@@ -16,6 +16,7 @@ jobs:
   update:
     name: Update package sources
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     container:
       image: archlinux:latest

@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=/dev/null
+source "${root}/scripts/common"
+
+# shellcheck source=/dev/null
+source "${root}/config/repo.conf"
+
+(( $# >= 1 )) || {
+    printf 'Usage: %s <cache|repo> [protected-artifact...]\n' \
+        "$(basename "$0")" >&2
+    exit 2
+}
+
+case "$1" in
+    cache)
+        artifact_dir="${root}/.cache/artifacts/${REPO_ARCH}"
+        require_signatures=false
+        ;;
+    repo)
+        artifact_dir="${root}/repo/${REPO_ARCH}"
+        require_signatures=true
+        ;;
+    *)
+        printf 'error: invalid artifact store: %s\n' "$1" >&2
+        exit 2
+        ;;
+esac
+
+shift
+protected_artifacts=("$@")
+
+if [[ ! "${REPO_RETAIN_VERSIONS}" =~ ^[0-9]+$ ]] ||
+    (( REPO_RETAIN_VERSIONS <= 0 )); then
+    printf 'error: invalid artifact retention count\n' >&2
+    exit 1
+fi
+
+acquire_repository_lock "${root}"
+
+shopt -s nullglob
+candidates=("${artifact_dir}"/*.pkg.tar.*)
+shopt -u nullglob
+
+artifacts=()
+package_names=()
+package_versions=()
+
+for candidate in "${candidates[@]}"; do
+    [[ "${candidate}" != *.sig ]] || continue
+
+    [[ ! -L "${candidate}" ]] || {
+        printf 'error: package artifact must not be a symlink: %s\n' \
+            "${candidate}" >&2
+        exit 1
+    }
+
+    if [[ "${require_signatures}" == true &&
+        ( ! -f "${candidate}.sig" || -L "${candidate}.sig" ) ]]; then
+        printf 'error: package artifact lacks signature: %s\n' "${candidate}" >&2
+        exit 1
+    fi
+
+    if ! pkginfo="$(bsdtar -xOf "${candidate}" .PKGINFO)"; then
+        printf 'error: unreadable package artifact: %s\n' "${candidate}" >&2
+        exit 1
+    fi
+
+    package_name="$(awk -F ' = ' '$1 == "pkgname" { print $2; exit }' <<< "${pkginfo}")"
+    package_version="$(awk -F ' = ' '$1 == "pkgver" { print $2; exit }' <<< "${pkginfo}")"
+
+    [[ -n "${package_name}" && -n "${package_version}" ]] || {
+        printf 'error: package artifact lacks identity: %s\n' "${candidate}" >&2
+        exit 1
+    }
+
+    artifacts+=("${candidate}")
+    package_names+=("${package_name}")
+    package_versions+=("${package_version}")
+done
+
+for (( i = 0; i < ${#artifacts[@]}; i++ )); do
+    for protected in "${protected_artifacts[@]}"; do
+        [[ "${artifacts[i]}" != "${protected}" ]] || continue 2
+    done
+
+    newer=0
+
+    for (( j = 0; j < ${#artifacts[@]}; j++ )); do
+        [[ "${package_names[i]}" == "${package_names[j]}" ]] || continue
+
+        version_order="$(vercmp "${package_versions[j]}" "${package_versions[i]}")"
+        (( version_order > 0 )) || continue
+
+        (( ++newer < REPO_RETAIN_VERSIONS )) || break
+    done
+
+    (( newer < REPO_RETAIN_VERSIONS )) || {
+        rm -f "${artifacts[i]}" "${artifacts[i]}.sig"
+        printf '==> Pruned: %s\n' "${artifacts[i]}"
+    }
+done
+
+for candidate in "${candidates[@]}"; do
+    [[ "${candidate}" == *.sig ]] || continue
+    [[ -f "${candidate%.sig}" ]] || rm -f "${candidate}"
+done
