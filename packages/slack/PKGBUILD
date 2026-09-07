@@ -8,6 +8,7 @@ pkgdesc='Runtime installer for the official desktop client'
 arch=('x86_64')
 url='https://slack.com/downloads/linux'
 license=('MIT')
+options=('!debug')
 
 depends=(
     'alsa-lib'

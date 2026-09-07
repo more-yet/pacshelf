@@ -8,6 +8,7 @@ pkgdesc='Runtime installer for the official ChatGPT desktop app'
 arch=('x86_64')
 url='https://developers.openai.com/codex/linux/linux-app'
 license=('MIT')
+options=('!debug')
 
 depends=(
     'alsa-lib'

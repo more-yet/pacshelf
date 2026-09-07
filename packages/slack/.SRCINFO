@@ -27,6 +27,7 @@ pkgbase = slack
 	conflicts = slack-desktop-wayland
 	conflicts = slack-electron
 	noextract = slack-desktop-4.52.155-amd64.deb
+	options = !debug
 	source = slack-launcher
 	source = slack.desktop
 	source = LICENSE
