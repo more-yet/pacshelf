@@ -33,7 +33,8 @@ cd "${package_dir}"
 printf '==> Checking upstream: %s\n' "${package_name}"
 
 set +e
-pkgctl version check -v
+# pkgctl disowns its spinner, so do not let that child extend the lock lifetime.
+pkgctl version check -v 9>&-
 status=$?
 set -e
 
@@ -56,7 +57,7 @@ esac
 
 printf '==> Updating PKGBUILD: %s\n' "${package_name}"
 
-pkgctl version upgrade -v
+pkgctl version upgrade -v 9>&-
 
 printf '==> Regenerating .SRCINFO\n'
 
