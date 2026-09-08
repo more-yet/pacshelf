@@ -2,7 +2,7 @@
 
 pkgname=slack
 pkgver=4.52.155
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Runtime installer for the official desktop client'
 arch=('x86_64')
@@ -65,7 +65,7 @@ package() {
     local deb_size
     local release_file="${pkgdir}/usr/share/slack-launcher/release"
 
-    deb_size="$(stat --format='%s' "${_deb}")"
+    deb_size="$(stat --dereference --format='%s' "${_deb}")"
     (( deb_size > 0 && deb_size <= _max_deb_size )) || {
         printf 'error: Slack package exceeds the download size limit\n' >&2
         return 1
