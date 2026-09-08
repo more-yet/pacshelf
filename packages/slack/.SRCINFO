@@ -1,7 +1,7 @@
 pkgbase = slack
 	pkgdesc = Runtime installer for the official desktop client
 	pkgver = 4.52.155
-	pkgrel = 1
+	pkgrel = 2
 	url = https://slack.com/downloads/linux
 	arch = x86_64
 	license = MIT
