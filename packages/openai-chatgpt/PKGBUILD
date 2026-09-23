@@ -72,7 +72,7 @@ source=(
     "${_packages}::${_packages_url}"
 )
 
-sha256sums=('157e3ad88282494df1d50ce23849598968395e5d26a4143271751c21e17e180a'
+sha256sums=('5687db2cbf84f00c63f0983dd4908afb07f1677b5f9adffe942fa89ab956ba3f'
             '314abf317aaefebf47963356029f55319f5e43936848c270d0ad2c691d9edc1a'
             '6642f9005eabe54f989541fb8dec6251cf57dde29f3170f8b49e28069f6a55ec'
             '533dd58461aad2517cbcc2fd709edebe430b72eaebeddaae8622d25d2301f3da')

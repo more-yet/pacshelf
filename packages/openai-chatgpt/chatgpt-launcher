@@ -132,4 +132,4 @@ fi
 flock --unlock "${lock_fd}"
 exec {lock_fd}>&-
 
-exec "${binary}" "$@"
+exec "${binary}" --ozone-platform=wayland "$@"
