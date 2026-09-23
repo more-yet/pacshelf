@@ -106,20 +106,11 @@ for package_file in "${built_packages[@]}"; do
         mv "${signature_tmp}" "${signature}"
     fi
 
-    set +e
-    signature_status="$(
-        gpg --batch --status-fd 1 \
-            --verify "${signature}" "${package_file}" 2>/dev/null
-    )"
-    signature_result=$?
-    set -e
-
-    signer="$(
-        awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print toupper($NF); exit }' \
-            <<< "${signature_status}"
-    )"
-
-    if (( signature_result != 0 )) || [[ "${signer}" != "${fingerprint}" ]]; then
+    if ! verify_detached_signature \
+        "${package_file}" \
+        "${signature}" \
+        "${fingerprint}"
+    then
         printf 'error: package signature is not valid for %s: %s\n' \
             "${fingerprint}" "${signature}" >&2
         exit 1

@@ -22,22 +22,29 @@ remote_root="${REPO_REMOTE%/}"
 repo_root="${root}/repo"
 repo_dir="${repo_root}/${REPO_ARCH}"
 database="${repo_dir}/${REPO_NAME}.db.tar.zst"
+database_signature="${database}.sig"
+files_database="${repo_dir}/${REPO_NAME}.files.tar.zst"
+files_database_signature="${files_database}.sig"
 public_key="${repo_root}/${REPO_NAME}.asc"
 remote_repo="${remote_root}/${REPO_ARCH}"
 
-[[ -f "${database}" && ! -L "${database}" ]] || {
-    printf 'error: repository database not found: %s\n' "${database}" >&2
-    exit 1
-}
+for repository_database in "${database}" "${files_database}"; do
+    [[ -f "${repository_database}" && ! -L "${repository_database}" ]] || {
+        printf 'error: repository database not found: %s\n' \
+            "${repository_database}" >&2
+        exit 1
+    }
+
+    repository_database_size="$(stat --format='%s' "${repository_database}")"
+    (( repository_database_size <= REPO_MAX_DATABASE_BYTES )) || {
+        printf 'error: local repository database exceeds size limit: %s\n' \
+            "${repository_database}" >&2
+        exit 1
+    }
+done
 
 [[ -f "${public_key}" && ! -L "${public_key}" ]] || {
     printf 'error: repository public key not found: %s\n' "${public_key}" >&2
-    exit 1
-}
-
-database_size="$(stat --format='%s' "${database}")"
-(( database_size <= REPO_MAX_DATABASE_BYTES )) || {
-    printf 'error: local repository database exceeds size limit\n' >&2
     exit 1
 }
 
@@ -133,33 +140,33 @@ database_records() {
 verify_package_signature() {
     local artifact="$1"
     local signature="${artifact}.sig"
-    local signature_status
-    local signer
 
-    [[ -f "${signature}" && ! -L "${signature}" ]] || {
-        printf 'error: package signature missing: %s\n' "${signature}" >&2
-        return 1
-    }
-
-    if ! signature_status="$(
-        gpg --batch --status-fd 1 \
-            --verify "${signature}" "${artifact}" 2>/dev/null
-    )"; then
-        printf 'error: invalid repository package signature: %s\n' \
-            "${signature}" >&2
-        return 1
-    fi
-
-    signer="$(
-        awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print toupper($NF); exit }' \
-            <<< "${signature_status}"
-    )"
-
-    [[ "${signer}" == "${fingerprint}" ]] || {
+    verify_detached_signature \
+        "${artifact}" \
+        "${signature}" \
+        "${fingerprint}" || {
         printf 'error: package signature is not valid for %s: %s\n' \
             "${fingerprint}" "${signature}" >&2
         return 1
     }
+}
+
+verify_detached_signature \
+    "${database}" \
+    "${database_signature}" \
+    "${fingerprint}" || {
+    printf 'error: invalid repository database signature: %s\n' \
+        "${database_signature}" >&2
+    exit 1
+}
+
+verify_detached_signature \
+    "${files_database}" \
+    "${files_database_signature}" \
+    "${fingerprint}" || {
+    printf 'error: invalid repository database signature: %s\n' \
+        "${files_database_signature}" >&2
+    exit 1
 }
 
 if ! local_records="$(database_records "${database}" | sort -u)"; then
@@ -356,7 +363,7 @@ then
     exit 1
 fi
 
-printf '==> Publishing repository database\n'
+printf '==> Publishing repository databases\n'
 
 rclone copy \
     "${repo_dir}" \

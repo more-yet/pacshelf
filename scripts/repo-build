@@ -23,7 +23,10 @@ package_dir="${root}/packages/${package_name}"
 artifact_dir="${root}/.cache/artifacts/${REPO_ARCH}"
 repo_dir="${root}/repo/${REPO_ARCH}"
 database="${repo_dir}/${REPO_NAME}.db.tar.zst"
+database_signature="${database}.sig"
 files_database="${repo_dir}/${REPO_NAME}.files.tar.zst"
+files_database_signature="${files_database}.sig"
+fingerprint="${REPO_SIGNING_KEY^^}"
 
 if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
     printf 'error: package not found: %s\n' "${package_name}" >&2
@@ -33,6 +36,26 @@ fi
 export PKGDEST="${artifact_dir}"
 
 mkdir -p "${repo_dir}"
+
+for repository_file in \
+    "${database}" \
+    "${database_signature}" \
+    "${files_database}" \
+    "${files_database_signature}"
+do
+    [[ ! -L "${repository_file}" ]] || {
+        printf 'error: repository file must not be a symlink: %s\n' \
+            "${repository_file}" >&2
+        exit 1
+    }
+done
+
+if [[ -e "${database}" || -e "${files_database}" ]]; then
+    [[ -f "${database}" && -f "${files_database}" ]] || {
+        printf '%s\n' 'error: repository databases are incomplete' >&2
+        exit 1
+    }
+fi
 
 cd "${package_dir}"
 
@@ -72,6 +95,14 @@ for package_file in "${built_packages[@]}"; do
 
     [[ -f "${signature}" && ! -L "${signature}" ]] || {
         printf 'error: package signature missing: %s\n' "${signature}" >&2
+        exit 1
+    }
+
+    verify_detached_signature \
+        "${package_file}" \
+        "${signature}" \
+        "${fingerprint}" || {
+        printf 'error: invalid package signature: %s\n' "${signature}" >&2
         exit 1
     }
 
@@ -122,8 +153,24 @@ fi
 repo-add \
     --prevent-downgrade \
     --include-sigs \
+    --sign \
+    --key "${fingerprint}" \
     "${staging}/${REPO_NAME}.db.tar.zst" \
     "${built_packages[@]}"
+
+for signed_database in \
+    "${staging}/${REPO_NAME}.db.tar.zst" \
+    "${staging}/${REPO_NAME}.files.tar.zst"
+do
+    verify_detached_signature \
+        "${signed_database}" \
+        "${signed_database}.sig" \
+        "${fingerprint}" || {
+        printf 'error: invalid generated database signature: %s.sig\n' \
+            "${signed_database}" >&2
+        exit 1
+    }
+done
 
 database_size="$(
     stat --format='%s' "${staging}/${REPO_NAME}.db.tar.zst"
@@ -162,13 +209,27 @@ for (( i = 0; i < ${#built_packages[@]}; i++ )); do
 done
 
 mv -f "${staging}/${REPO_NAME}.files.tar.zst" "${files_database}"
+mv -f \
+    "${staging}/${REPO_NAME}.files.tar.zst.sig" \
+    "${files_database_signature}"
 mv -f "${staging}/${REPO_NAME}.db.tar.zst" "${database}"
-ln -sfn "${REPO_NAME}.files.tar.zst" "${repo_dir}/${REPO_NAME}.files"
-ln -sfn "${REPO_NAME}.db.tar.zst" "${repo_dir}/${REPO_NAME}.db"
+mv -f \
+    "${staging}/${REPO_NAME}.db.tar.zst.sig" \
+    "${database_signature}"
+ln -sfnT "${REPO_NAME}.files.tar.zst" "${repo_dir}/${REPO_NAME}.files"
+ln -sfnT \
+    "${REPO_NAME}.files.tar.zst.sig" \
+    "${repo_dir}/${REPO_NAME}.files.sig"
+ln -sfnT "${REPO_NAME}.db.tar.zst" "${repo_dir}/${REPO_NAME}.db"
+ln -sfnT \
+    "${REPO_NAME}.db.tar.zst.sig" \
+    "${repo_dir}/${REPO_NAME}.db.sig"
 
 rm -f \
     "${repo_dir}/${REPO_NAME}.db.tar.zst.old" \
-    "${repo_dir}/${REPO_NAME}.files.tar.zst.old"
+    "${repo_dir}/${REPO_NAME}.db.tar.zst.old.sig" \
+    "${repo_dir}/${REPO_NAME}.files.tar.zst.old" \
+    "${repo_dir}/${REPO_NAME}.files.tar.zst.old.sig"
 
 "${root}/scripts/prune" repo
 

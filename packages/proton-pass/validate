@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+[[ $# -eq 1 ]] || {
+    printf 'error: expected one package artifact\n' >&2
+    exit 1
+}
+
+fail() {
+    printf 'error: %s\n' "$*" >&2
+    exit 1
+}
+
+archive="$1"
+
+printf '==> Checking Proton Pass package invariants\n'
+
+pkginfo="$(bsdtar -xOf "${archive}" .PKGINFO)"
+listing="$(bsdtar -tf "${archive}")"
+verbose_listing="$(bsdtar --numeric-owner -tvf "${archive}")"
+
+grep -Fqx 'pkgname = proton-pass' <<< "${pkginfo}" ||
+    fail 'unexpected package name'
+
+for required in \
+    'usr/bin/proton-pass' \
+    'usr/lib/proton-pass/Proton Pass' \
+    'usr/lib/proton-pass/chrome-sandbox' \
+    'usr/lib/proton-pass/resources/app.asar' \
+    'usr/share/applications/proton-pass.desktop' \
+    'usr/share/licenses/proton-pass/LICENSE' \
+    'usr/share/pixmaps/proton-pass.png'
+do
+    grep -Fqx "${required}" <<< "${listing}" ||
+        fail "missing required path: ${required}"
+done
+
+if grep -Eq '^usr/share/(doc|lintian)(/|$)' <<< "${listing}"; then
+    fail 'Debian package metadata leaked into the Arch package'
+fi
+
+desktop="$(
+    bsdtar -xOf \
+        "${archive}" \
+        usr/share/applications/proton-pass.desktop
+)"
+grep -Fqx 'Exec=proton-pass %U' <<< "${desktop}" ||
+    fail 'unexpected desktop launcher command'
+
+grep -Eq 'usr/bin/proton-pass -> \.\./lib/proton-pass/Proton Pass$' \
+    <<< "${verbose_listing}" ||
+    fail 'unexpected executable symlink'
+
+grep -Eq '^-rwsr-xr-x[[:space:]]+0[[:space:]]+0[[:space:]].*[[:space:]]usr/lib/proton-pass/chrome-sandbox$' \
+    <<< "${verbose_listing}" ||
+    fail 'Chromium sandbox must be root-owned with mode 4755'
+
+unexpected_setid="$(
+    awk '
+        (substr($1, 4, 1) ~ /[sS]/ || substr($1, 7, 1) ~ /[sS]/) &&
+        $0 !~ / usr\/lib\/proton-pass\/chrome-sandbox$/ { print }
+    ' <<< "${verbose_listing}"
+)"
+[[ -z "${unexpected_setid}" ]] || fail 'unexpected setuid or setgid payload'
+
+world_writable="$(
+    awk '$1 !~ /^l/ && substr($1, 9, 1) == "w" { print }' \
+        <<< "${verbose_listing}"
+)"
+[[ -z "${world_writable}" ]] || fail 'package contains world-writable paths'
+
+printf '==> Proton Pass package invariants passed\n'

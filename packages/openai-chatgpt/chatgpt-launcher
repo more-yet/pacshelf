@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+umask 077
 
 readonly release_file='/usr/share/chatgpt-launcher/release'
-readonly max_archive_size_bytes=629145600
 
 fail() {
     printf 'error: %s\n' "$*" >&2
@@ -19,13 +19,15 @@ source "${release_file}"
     fail 'invalid ChatGPT release URL'
 [[ "${CHATGPT_SHA256}" =~ ^[[:xdigit:]]{64}$ ]] ||
     fail 'invalid ChatGPT release checksum'
-[[ "${CHATGPT_SIZE}" =~ ^[0-9]+$ ]] ||
+[[ "${CHATGPT_SIZE}" =~ ^[1-9][0-9]*$ ]] ||
     fail 'invalid ChatGPT release size'
-(( CHATGPT_SIZE > 0 && CHATGPT_SIZE <= max_archive_size_bytes )) ||
-    fail 'ChatGPT release exceeds the download size limit'
 
 readonly data_home="${XDG_DATA_HOME:-${HOME}/.local/share}"
 readonly cache_home="${XDG_CACHE_HOME:-${HOME}/.cache}"
+
+[[ "${data_home}" == /* && "${cache_home}" == /* ]] ||
+    fail 'XDG data and cache directories must be absolute paths'
+
 readonly install_root="${data_home}/chatgpt-launcher"
 readonly install_dir="${install_root}/${CHATGPT_VERSION}-${CHATGPT_SHA256}"
 readonly binary="${install_dir}/ChatGPT"
@@ -33,13 +35,14 @@ readonly archive_dir="${cache_home}/chatgpt-launcher"
 readonly archive="${archive_dir}/chatgpt.deb"
 
 verify_archive() {
-    [[ -f "${archive}" ]] &&
+    [[ -f "${archive}" && ! -L "${archive}" ]] &&
         [[ "$(stat --format='%s' "${archive}")" == "${CHATGPT_SIZE}" ]] &&
         printf '%s  %s\n' "${CHATGPT_SHA256}" "${archive}" |
             sha256sum --check --status
 }
 
 install_chatgpt() (
+    local app_dir
     local -a data_archives
     local download=''
     local icon
@@ -88,11 +91,17 @@ install_chatgpt() (
         fail 'ChatGPT package contains an unexpected data archive'
 
     bsdtar -xf "${data_archives[0]}" -C "${staging}/root"
-    [[ -x "${staging}/root/usr/lib/chatgpt/ChatGPT" ]] ||
+
+    app_dir="${staging}/root/usr/lib/chatgpt"
+    [[ -d "${app_dir}" && ! -L "${app_dir}" && -x "${app_dir}/ChatGPT" ]] ||
         fail 'ChatGPT package does not contain the expected application'
 
+    # A user-owned setuid helper cannot provide Chromium's sandbox.
+    rm -f "${app_dir}/chrome-sandbox"
+    chmod -R u-s,g-s,go-w "${app_dir}"
+
     rm -rf "${install_dir}"
-    mv "${staging}/root/usr/lib/chatgpt" "${install_dir}"
+    mv "${app_dir}" "${install_dir}"
 
     icon="${staging}/root/usr/share/pixmaps/chatgpt.png"
     if [[ -f "${icon}" ]]; then
@@ -123,4 +132,4 @@ fi
 flock --unlock "${lock_fd}"
 exec {lock_fd}>&-
 
-exec "${binary}" --ozone-platform=wayland "$@"
+exec "${binary}" "$@"

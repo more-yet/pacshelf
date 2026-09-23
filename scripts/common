@@ -45,3 +45,35 @@ bounded_lines() {
         { print }
     '
 }
+
+verify_detached_signature() {
+    local artifact="$1"
+    local signature="$2"
+    local expected_fingerprint="${3^^}"
+    local signature_size
+    local signature_status
+    local signer
+
+    [[ -f "${artifact}" && ! -L "${artifact}" ]] || return 1
+    [[ -f "${signature}" && ! -L "${signature}" ]] || return 1
+
+    signature_size="$(stat --format='%s' "${signature}")" || return 1
+    (( signature_size > 0 && signature_size <= 16384 )) ||
+        return 1
+
+    signature_status="$(
+        gpg --batch --status-fd 1 \
+            --verify "${signature}" "${artifact}" 2>/dev/null
+    )" || return 1
+
+    signer="$(
+        awk '
+            $1 == "[GNUPG:]" && $2 == "VALIDSIG" {
+                print toupper($NF)
+                exit
+            }
+        ' <<< "${signature_status}"
+    )"
+
+    [[ "${signer}" == "${expected_fingerprint}" ]]
+}

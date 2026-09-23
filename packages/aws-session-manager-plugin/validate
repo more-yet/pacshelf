@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-[[ $# -ge 1 ]] || {
-    printf 'error: no package artifact supplied\n' >&2
+[[ $# -eq 1 ]] || {
+    printf 'error: expected one package artifact\n' >&2
     exit 1
 }
 
@@ -12,25 +12,15 @@ fail() {
     exit 1
 }
 
-archive=''
-
-for candidate in "$@"; do
-    candidate_pkginfo="$(bsdtar -xOf "${candidate}" .PKGINFO)"
-
-    if grep -Fqx 'pkgname = aws-session-manager-plugin' <<< "${candidate_pkginfo}"; then
-        [[ -z "${archive}" ]] || fail 'duplicate main package artifact'
-        archive="${candidate}"
-    elif ! grep -Fqx 'pkgname = aws-session-manager-plugin-debug' <<< "${candidate_pkginfo}"; then
-        fail "unexpected package artifact: ${candidate}"
-    fi
-done
-
-[[ -n "${archive}" ]] || fail 'main package artifact missing'
+archive="$1"
 
 printf '==> Checking AWS Session Manager Plugin invariants\n'
 
 pkginfo="$(bsdtar -xOf "${archive}" .PKGINFO)"
 listing="$(bsdtar -tf "${archive}")"
+
+grep -Fqx 'pkgname = aws-session-manager-plugin' <<< "${pkginfo}" ||
+    fail 'unexpected package name'
 
 for required in \
     'usr/bin/session-manager-plugin' \
