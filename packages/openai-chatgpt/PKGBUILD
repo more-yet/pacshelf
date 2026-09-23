@@ -1,7 +1,7 @@
 # Maintainer: Aditya Singh
 
 pkgname=openai-chatgpt
-pkgver=26.915.31029
+pkgver=26.917.61114
 pkgrel=1
 
 pkgdesc='Runtime installer for the official ChatGPT desktop app'
@@ -68,7 +68,7 @@ source=(
 sha256sums=('47f4d7061a25f050b09a001d8c916b3a9d70e4a254a3292832b441edd64a0f8c'
             '314abf317aaefebf47963356029f55319f5e43936848c270d0ad2c691d9edc1a'
             '6642f9005eabe54f989541fb8dec6251cf57dde29f3170f8b49e28069f6a55ec'
-            '661867037a2d770a5b672b9676b2e41ac93b5132754dbec08b4543e6a936d03a')
+            '533dd58461aad2517cbcc2fd709edebe430b72eaebeddaae8622d25d2301f3da')
 
 package() {
     local deb_path deb_sha256 deb_size index_version release_file
