@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_name='pacshelf'
+repo_arch='x86_64'
+repo_remote='r2:pacshelf'
+signing_key='9243E163FD44CCF22FF9C29E6F582689B321A703'
+
+[[ $# -eq 1 ]] || {
+    printf 'Usage: %s <package|all>\n' "$(basename "$0")" >&2
+    exit 2
+}
+
+selection="$1"
+artifact_dir="${root}/.cache/artifacts/${repo_arch}"
+repo_root="${root}/repo"
+repo_dir="${repo_root}/${repo_arch}"
+remote_dir="${repo_remote}/${repo_arch}"
+
+[[ "$(git -C "${root}" branch --show-current)" == main ]] || {
+    printf 'error: releases must run from main\n' >&2
+    exit 1
+}
+
+[[ -z "$(git -C "${root}" status --porcelain)" ]] || {
+    printf 'error: releases require a clean worktree\n' >&2
+    exit 1
+}
+
+verify_signature() {
+    gpg --batch --status-fd 1 --verify "$1.sig" "$1" 2>/dev/null |
+        awk -v key="${signing_key}" '
+            $1 == "[GNUPG:]" && $2 == "VALIDSIG" &&
+                (toupper($3) == key || toupper($NF) == key) {
+                valid = 1
+            }
+            END { exit !valid }
+        '
+}
+
+if [[ "${selection}" == all ]]; then
+    rm -rf "${artifact_dir}" "${repo_root}"
+elif [[ ! "${selection}" =~ ^[a-z0-9@._+-]+$ ]] ||
+    [[ ! -f "${root}/packages/${selection}/PKGBUILD" ]]; then
+    printf 'error: package not found: %s\n' "${selection}" >&2
+    exit 1
+else
+    rm -rf "${repo_root}"
+    mkdir -p "${repo_dir}"
+    rclone copy "${remote_dir}" "${repo_dir}" \
+        --include '*.pkg.tar.*'
+
+    shopt -s nullglob
+    remote_packages=("${repo_dir}"/*.pkg.tar.*)
+    shopt -u nullglob
+
+    has_package=false
+    for package_file in "${remote_packages[@]}"; do
+        [[ "${package_file}" == *.sig ]] && continue
+        [[ -f "${package_file}.sig" ]] || {
+            printf 'error: package signature missing: %s\n' "${package_file}" >&2
+            exit 1
+        }
+        verify_signature "${package_file}"
+        has_package=true
+    done
+
+    [[ "${has_package}" == true ]] || {
+        printf 'error: run release all to initialize the repository\n' >&2
+        exit 1
+    }
+fi
+
+"${root}/scripts/build" "${selection}"
+mkdir -p "${repo_dir}"
+
+if [[ "${selection}" == all ]]; then
+    shopt -s nullglob
+    built_packages=("${artifact_dir}"/*.pkg.tar.*)
+    shopt -u nullglob
+else
+    mapfile -t built_packages < <(
+        cd "${root}/packages/${selection}"
+        PKGDEST="${artifact_dir}" makepkg --packagelist
+    )
+fi
+
+filtered_packages=()
+for package_file in "${built_packages[@]}"; do
+    [[ "${package_file}" == *.sig ]] || filtered_packages+=("${package_file}")
+done
+built_packages=("${filtered_packages[@]}")
+
+(( ${#built_packages[@]} > 0 )) || {
+    printf 'error: no packages were built\n' >&2
+    exit 1
+}
+
+package_name() {
+    bsdtar -xOf "$1" .PKGINFO |
+        awk -F ' = ' '$1 == "pkgname" { print $2; exit }'
+}
+
+shopt -s nullglob
+existing_packages=("${repo_dir}"/*.pkg.tar.*)
+shopt -u nullglob
+
+for package_file in "${built_packages[@]}"; do
+    name="$(package_name "${package_file}")"
+    [[ -n "${name}" ]] || {
+        printf 'error: invalid package: %s\n' "${package_file}" >&2
+        exit 1
+    }
+
+    for existing in "${existing_packages[@]}"; do
+        [[ "${existing}" == *.sig ]] && continue
+        [[ -f "${existing}" ]] || continue
+        if [[ "$(package_name "${existing}")" == "${name}" ]]; then
+            rm -f "${existing}" "${existing}.sig"
+        fi
+    done
+
+    rm -f "${package_file}.sig"
+    gpg --batch --yes --detach-sign \
+        --local-user "${signing_key}" \
+        "${package_file}"
+    verify_signature "${package_file}"
+
+    install -m644 "${package_file}" "${package_file}.sig" "${repo_dir}/"
+done
+
+gpg --batch --armor --export "${signing_key}" > "${repo_root}/${repo_name}.asc"
+[[ -s "${repo_root}/${repo_name}.asc" ]] || {
+    printf 'error: signing key not found: %s\n' "${signing_key}" >&2
+    exit 1
+}
+
+rm -f \
+    "${repo_dir}/${repo_name}.db"* \
+    "${repo_dir}/${repo_name}.files"*
+
+shopt -s nullglob
+repo_packages=("${repo_dir}"/*.pkg.tar.*)
+shopt -u nullglob
+
+unsigned_packages=()
+for package_file in "${repo_packages[@]}"; do
+    [[ "${package_file}" == *.sig ]] || unsigned_packages+=("${package_file}")
+done
+
+for package_file in "${unsigned_packages[@]}"; do
+    [[ -f "${package_file}.sig" ]] || {
+        printf 'error: package signature missing: %s\n' "${package_file}" >&2
+        exit 1
+    }
+    verify_signature "${package_file}"
+done
+
+repo-add \
+    --include-sigs \
+    --sign \
+    --key "${signing_key}" \
+    "${repo_dir}/${repo_name}.db.tar.zst" \
+    "${unsigned_packages[@]}"
+
+verify_signature "${repo_dir}/${repo_name}.db.tar.zst"
+verify_signature "${repo_dir}/${repo_name}.files.tar.zst"
+
+rclone copyto \
+    "${repo_root}/${repo_name}.asc" \
+    "${repo_remote}/${repo_name}.asc" \
+    --checksum
+
+rclone copy "${repo_dir}" "${remote_dir}" \
+    --checksum \
+    --immutable \
+    --include '*.pkg.tar.*'
+
+rclone copy "${repo_dir}" "${remote_dir}" \
+    --checksum \
+    --copy-links \
+    --include "${repo_name}.db*" \
+    --include "${repo_name}.files*"
+
+rclone sync "${repo_dir}" "${remote_dir}" \
+    --checksum \
+    --immutable \
+    --include '*.pkg.tar.*'
+
+printf '==> Released: %s\n' "${selection}"

@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+(( $# <= 1 )) || {
+    printf 'Usage: %s [package]\n' "$(basename "$0")" >&2
+    exit 2
+}
+
+selection="${1:-all}"
+mkdir -p "${root}/.cache/sources"
+export SRCDEST="${root}/.cache/sources"
+
+packages=()
+
+if [[ "${selection}" == all ]]; then
+    for package_dir in "${root}"/packages/*; do
+        [[ -f "${package_dir}/PKGBUILD" ]] || continue
+        packages+=("$(basename "${package_dir}")")
+    done
+elif [[ "${selection}" =~ ^[a-z0-9@._+-]+$ ]] &&
+    [[ -f "${root}/packages/${selection}/PKGBUILD" ]]; then
+    packages=("${selection}")
+else
+    printf 'error: package not found: %s\n' "${selection}" >&2
+    exit 1
+fi
+
+for package_name in "${packages[@]}"; do
+    package_dir="${root}/packages/${package_name}"
+    [[ -f "${package_dir}/.nvchecker.toml" ]] || {
+        printf 'error: missing .nvchecker.toml: %s\n' "${package_name}" >&2
+        exit 1
+    }
+
+    cd "${package_dir}"
+    printf '==> Checking: %s\n' "${package_name}"
+
+    status=0
+    pkgctl version check -v || status=$?
+
+    case "${status}" in
+        0)
+            printf '==> Current: %s\n' "${package_name}"
+            continue
+            ;;
+        2)
+            pkgctl version upgrade -v
+            ;;
+        *)
+            printf 'error: update check failed for %s (%d)\n' \
+                "${package_name}" "${status}" >&2
+            exit 1
+            ;;
+    esac
+
+    srcinfo="$(mktemp "${package_dir}/.SRCINFO.XXXXXX")"
+    if ! makepkg --printsrcinfo > "${srcinfo}"; then
+        rm -f "${srcinfo}"
+        exit 1
+    fi
+    chmod 0644 "${srcinfo}"
+    mv "${srcinfo}" .SRCINFO
+    printf '==> Updated: %s\n' "${package_name}"
+done

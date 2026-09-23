@@ -1,0 +1,5 @@
+[slack]
+source = "regex"
+url = "https://slack.com/downloads/instructions/linux?build=deb&ddl=1"
+regex = 'desktop-releases/linux/x64/([0-9]+\.[0-9]+\.[0-9]+)/slack-desktop-[0-9]+\.[0-9]+\.[0-9]+-amd64\.deb'
+sort_version_key = "vercmp"

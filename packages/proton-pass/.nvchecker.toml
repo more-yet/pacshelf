@@ -1,0 +1,5 @@
+[proton-pass]
+source = "regex"
+url = "https://proton.me/download/PassDesktop/linux/x64/version.json"
+regex = '"CategoryName":\s*"Stable",\s*"Version":\s*"([0-9]+\.[0-9]+\.[0-9]+)"'
+sort_version_key = "vercmp"

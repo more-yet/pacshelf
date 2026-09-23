@@ -1,0 +1,4 @@
+[aws-session-manager-plugin]
+source = "github"
+github = "aws/session-manager-plugin"
+use_latest_release = true

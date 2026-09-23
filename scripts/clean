@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+[[ $# -eq 0 ]] || {
+    printf 'Usage: %s\n' "$(basename "$0")" >&2
+    exit 2
+}
+
+rm -rf "${root}/.cache" "${root}/repo"
+
+find "${root}/packages" -mindepth 2 -maxdepth 2 \
+    -type d \( -name src -o -name pkg \) \
+    -exec rm -rf -- {} +
+
+find "${root}/packages" -mindepth 2 -maxdepth 2 \
+    -type f \( \
+        -name '*.deb' -o \
+        -name '*.tar.*' -o \
+        -name '*.pkg.tar.*' -o \
+        -name '*.sig' \
+    \) -delete
+
+printf '==> Removed generated files\n'

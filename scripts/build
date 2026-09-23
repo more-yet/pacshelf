@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+(( $# <= 1 )) || {
+    printf 'Usage: %s [package]\n' "$(basename "$0")" >&2
+    exit 2
+}
+
+selection="${1:-all}"
+artifact_dir="${root}/.cache/artifacts/x86_64"
+
+mkdir -p \
+    "${root}/.cache/sources" \
+    "${root}/.cache/build" \
+    "${artifact_dir}"
+
+export PKGDEST="${artifact_dir}"
+export SRCDEST="${root}/.cache/sources"
+export BUILDDIR="${root}/.cache/build"
+
+packages=()
+
+if [[ "${selection}" == all ]]; then
+    for package_dir in "${root}"/packages/*; do
+        [[ -f "${package_dir}/PKGBUILD" ]] || continue
+        packages+=("$(basename "${package_dir}")")
+    done
+elif [[ "${selection}" =~ ^[a-z0-9@._+-]+$ ]] &&
+    [[ -f "${root}/packages/${selection}/PKGBUILD" ]]; then
+    packages=("${selection}")
+else
+    printf 'error: package not found: %s\n' "${selection}" >&2
+    exit 1
+fi
+
+for package_name in "${packages[@]}"; do
+    package_dir="${root}/packages/${package_name}"
+    cd "${package_dir}"
+
+    if ! diff -u .SRCINFO <(makepkg --printsrcinfo); then
+        printf 'error: regenerate %s/.SRCINFO\n' "${package_name}" >&2
+        exit 1
+    fi
+
+    printf '==> Building: %s\n' "${package_name}"
+
+    makepkg \
+        --syncdeps \
+        --noconfirm \
+        --cleanbuild \
+        --clean \
+        --force
+
+    mapfile -t package_files < <(makepkg --packagelist)
+    (( ${#package_files[@]} > 0 )) || {
+        printf 'error: no package produced: %s\n' "${package_name}" >&2
+        exit 1
+    }
+
+    for package_file in "${package_files[@]}"; do
+        [[ -f "${package_file}" ]] || {
+            printf 'error: package missing: %s\n' "${package_file}" >&2
+            exit 1
+        }
+        rm -f "${package_file}.sig"
+        printf '==> Built: %s\n' "${package_file}"
+    done
+done

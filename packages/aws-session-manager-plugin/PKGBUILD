@@ -1,0 +1,97 @@
+# Maintainer: Aditya Singh
+
+pkgname=aws-session-manager-plugin
+pkgver=1.2.835.0
+pkgrel=1
+
+pkgdesc='AWS Systems Manager Session Manager plugin'
+arch=('x86_64')
+url='https://github.com/aws/session-manager-plugin'
+license=('Apache-2.0')
+options=('!debug')
+
+depends=(
+    'glibc'
+)
+
+makedepends=(
+    'go'
+)
+
+optdepends=(
+    'aws-cli: AWS CLI v1 integration'
+    'aws-cli-v2: AWS CLI v2 integration'
+)
+
+provides=(
+    "session-manager-plugin=${pkgver}"
+)
+
+conflicts=(
+    'session-manager-plugin'
+)
+
+source=(
+    "session-manager-plugin-${pkgver}.tar.gz::https://github.com/aws/session-manager-plugin/archive/refs/tags/${pkgver}.tar.gz"
+)
+
+sha256sums=('8f2e1e0772f28d659bc8be82a175c0b9389facb13b72e2bb5e02ab042b20203e')
+
+prepare() {
+    local source_root="${srcdir}/session-manager-plugin-${pkgver}"
+    local import_root="${srcdir}/gopath/src/github.com/aws/session-manager-plugin"
+
+    cd "${source_root}"
+
+    # The 1.2.835.0 source tag incorrectly contains VERSION=1.3.0.0.
+    printf '%s' "${pkgver}" > VERSION
+    GO111MODULE=off go run 'src/version/versiongenerator/version-gen.go'
+
+    rm -rf "${srcdir}/gopath"
+    mkdir -p "${import_root}"
+    cp -a 'src/.' "${import_root}/src/"
+}
+
+build() {
+    export CGO_CPPFLAGS="${CPPFLAGS}"
+    export CGO_CFLAGS="${CFLAGS}"
+    export CGO_CXXFLAGS="${CXXFLAGS}"
+    export CGO_LDFLAGS="${LDFLAGS}"
+    export GO111MODULE=off
+    export GOPATH="${srcdir}/gopath:${srcdir}/session-manager-plugin-${pkgver}/vendor"
+
+    go build \
+        -buildmode=pie \
+        -trimpath \
+        -ldflags '-linkmode=external' \
+        -o "${srcdir}/session-manager-plugin" \
+        'github.com/aws/session-manager-plugin/src/sessionmanagerplugin-main'
+}
+
+package() {
+    local source_root="${srcdir}/session-manager-plugin-${pkgver}"
+
+    install -Dm755 \
+        "${srcdir}/session-manager-plugin" \
+        "${pkgdir}/usr/bin/session-manager-plugin"
+
+    install -Dm644 \
+        "${source_root}/README.md" \
+        "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+
+    install -Dm644 \
+        "${source_root}/RELEASENOTES.md" \
+        "${pkgdir}/usr/share/doc/${pkgname}/RELEASENOTES.md"
+
+    install -Dm644 \
+        "${source_root}/NOTICE" \
+        "${pkgdir}/usr/share/doc/${pkgname}/NOTICE"
+
+    install -Dm644 \
+        "${source_root}/THIRD-PARTY" \
+        "${pkgdir}/usr/share/doc/${pkgname}/THIRD-PARTY"
+
+    install -Dm644 \
+        "${source_root}/LICENSE" \
+        "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Slack
+GenericName=Team Communication
+Comment=Slack desktop client
+Icon=slack
+TryExec=slack
+Exec=slack %U
+Terminal=false
+StartupNotify=true
+StartupWMClass=Slack
+Categories=Network;InstantMessaging;
+MimeType=x-scheme-handler/slack;
