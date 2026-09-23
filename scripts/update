@@ -17,6 +17,7 @@ require_package_name "${package_name}"
 acquire_repository_lock "${root}"
 
 package_dir="${root}/packages/${package_name}"
+source_dir="${root}/.cache/sources"
 
 if [[ ! -f "${package_dir}/PKGBUILD" ]]; then
     printf 'error: package not found: %s\n' "${package_name}" >&2
@@ -27,6 +28,9 @@ if [[ ! -f "${package_dir}/.nvchecker.toml" ]]; then
     printf 'error: missing .nvchecker.toml for %s\n' "${package_name}" >&2
     exit 1
 fi
+
+mkdir -p "${source_dir}"
+export SRCDEST="${source_dir}"
 
 cd "${package_dir}"
 

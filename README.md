@@ -5,35 +5,33 @@ Custom Arch Linux packages, published at
 
 ## Setup
 
-Download the repository key and verify its fingerprint:
+Run this once to trust the PacShelf signing key and add the repository to
+Pacman:
 
 ```bash
-curl -fsSLo /tmp/pacshelf.asc https://pacshelf.moreyet.com/pacshelf.asc
-gpg --show-keys --fingerprint /tmp/pacshelf.asc
-sudo pacman-key --add /tmp/pacshelf.asc
-sudo pacman-key --lsign-key 9243E163FD44CCF22FF9C29E6F582689B321A703
-```
+( set -euo pipefail
+  sudo pacman-key --init
+  curl -fsSL --proto '=https' https://pacshelf.moreyet.com/pacshelf.asc |
+    sudo pacman-key --add
+  sudo pacman-key --lsign-key 9243E163FD44CCF22FF9C29E6F582689B321A703
+  sudo tee -a /etc/pacman.conf >/dev/null <<'EOF'
 
-Add the repository to `/etc/pacman.conf`:
-
-```ini
 [pacshelf]
-SigLevel = PackageRequired DatabaseOptional TrustedOnly
+SigLevel = PackageRequired DatabaseRequired TrustedOnly
 Server = https://pacshelf.moreyet.com/$arch
+EOF
+)
 ```
 
-Then update Pacman:
+The full signing-key fingerprint is
+`9243 E163 FD44 CCF2 2FF9 C29E 6F58 2689 B321 A703`.
+
+List or install packages with a full system upgrade:
 
 ```bash
-sudo pacman -Syu
 pacman -Sl pacshelf
-sudo pacman -S <package>
+sudo pacman -Syu <package>
 ```
-
-The `slack` and `openai-chatgpt` packages contain open-source launchers. On
-first run, each downloads a pinned release directly from its vendor, verifies
-it, and installs it in the current user's data directory; PacShelf does not
-distribute the proprietary application binaries.
 
 ## Development
 
@@ -83,3 +81,10 @@ git switch main
 git pull --ff-only
 ./scripts/release <package>
 ```
+
+## Packages
+
+- `aws-session-manager-plugin`
+- `openai-chatgpt`
+- `proton-pass`
+- `slack`

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+umask 077
 
 readonly release_file='/usr/share/slack-launcher/release'
-readonly max_archive_size_bytes=314572800
 
 fail() {
     printf 'error: %s\n' "$*" >&2
@@ -19,13 +19,15 @@ source "${release_file}"
     fail 'invalid Slack release URL'
 [[ "${SLACK_SHA256}" =~ ^[[:xdigit:]]{64}$ ]] ||
     fail 'invalid Slack release checksum'
-[[ "${SLACK_SIZE}" =~ ^[0-9]+$ ]] ||
+[[ "${SLACK_SIZE}" =~ ^[1-9][0-9]*$ ]] ||
     fail 'invalid Slack release size'
-(( SLACK_SIZE > 0 && SLACK_SIZE <= max_archive_size_bytes )) ||
-    fail 'Slack release exceeds the download size limit'
 
 readonly data_home="${XDG_DATA_HOME:-${HOME}/.local/share}"
 readonly cache_home="${XDG_CACHE_HOME:-${HOME}/.cache}"
+
+[[ "${data_home}" == /* && "${cache_home}" == /* ]] ||
+    fail 'XDG data and cache directories must be absolute paths'
+
 readonly install_root="${data_home}/slack-launcher"
 readonly install_dir="${install_root}/${SLACK_VERSION}-${SLACK_SHA256}"
 readonly binary="${install_dir}/slack"
@@ -33,13 +35,14 @@ readonly archive_dir="${cache_home}/slack-launcher"
 readonly archive="${archive_dir}/slack.deb"
 
 verify_archive() {
-    [[ -f "${archive}" ]] &&
+    [[ -f "${archive}" && ! -L "${archive}" ]] &&
         [[ "$(stat --format='%s' "${archive}")" == "${SLACK_SIZE}" ]] &&
         printf '%s  %s\n' "${SLACK_SHA256}" "${archive}" |
             sha256sum --check --status
 }
 
 install_slack() (
+    local app_dir
     local -a data_archives
     local download=''
     local icon
@@ -84,17 +87,21 @@ install_slack() (
     data_archives=("${staging}/deb"/data.tar.*)
     shopt -u nullglob
 
-    if (( ${#data_archives[@]} != 1 )); then
-        printf '%s\n' 'error: Slack package contains an unexpected data archive' >&2
-        return 1
-    fi
+    (( ${#data_archives[@]} == 1 )) ||
+        fail 'Slack package contains an unexpected data archive'
 
     bsdtar -xf "${data_archives[0]}" -C "${staging}/root"
 
+    app_dir="${staging}/root/usr/lib/slack"
+    [[ -d "${app_dir}" && ! -L "${app_dir}" && -x "${app_dir}/slack" ]] ||
+        fail 'Slack package does not contain the expected application'
+
     # A user-owned setuid helper cannot provide Chromium's sandbox.
-    rm -f "${staging}/root/usr/lib/slack/chrome-sandbox"
+    rm -f "${app_dir}/chrome-sandbox"
+    chmod -R u-s,g-s,go-w "${app_dir}"
+
     rm -rf "${install_dir}"
-    mv "${staging}/root/usr/lib/slack" "${install_dir}"
+    mv "${app_dir}" "${install_dir}"
 
     icon="${staging}/root/usr/share/pixmaps/slack.png"
     if [[ -f "${icon}" ]]; then
