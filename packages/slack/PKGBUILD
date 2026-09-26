@@ -1,7 +1,7 @@
 # Maintainer: Aditya Singh
 
 pkgname=slack
-pkgver=4.52.155
+pkgver=4.52.162
 pkgrel=1
 
 pkgdesc='Runtime installer for the official desktop client'
@@ -59,7 +59,7 @@ noextract=("${_deb}")
 sha256sums=('9610ff377b77250074d9de8475f262062c8f2c2f36e5ac5bf678944b10a5c539'
             'ea789ecac98b78251940dbf0c3cd94db1141db92a8666188a5e26f25cdf5bd26'
             '6642f9005eabe54f989541fb8dec6251cf57dde29f3170f8b49e28069f6a55ec'
-            '966536026f5afcd1c75a395dddd87b9596580931f659b40cebb21ab3add71b2f')
+            '5a1973ac9666889207787bf0e5330b62c6deddc3632ee6fcd3ece8c5eb823472')
 
 package() {
     local deb_size

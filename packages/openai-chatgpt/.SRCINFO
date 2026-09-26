@@ -1,6 +1,6 @@
 pkgbase = openai-chatgpt
 	pkgdesc = Runtime installer for the official ChatGPT desktop app
-	pkgver = 26.917.62051
+	pkgver = 26.924.20706
 	pkgrel = 1
 	url = https://developers.openai.com/codex/linux/linux-app
 	arch = x86_64
@@ -47,16 +47,16 @@ pkgbase = openai-chatgpt
 	optdepends = git: local project version control
 	optdepends = org.freedesktop.secrets: credential storage
 	optdepends = vulkan-driver: hardware-accelerated Vulkan rendering
-	provides = chatgpt=26.917.62051
+	provides = chatgpt=26.924.20706
 	conflicts = chatgpt
 	options = !debug
 	source = chatgpt-launcher
 	source = chatgpt.desktop
 	source = LICENSE
-	source = chatgpt-packages-26.917.62051::https://persistent.oaistatic.com/codex-app-prod/linux/deb/dists/stable/main/binary-amd64/Packages
+	source = chatgpt-packages-26.924.20706::https://persistent.oaistatic.com/codex-app-prod/linux/deb/dists/stable/main/binary-amd64/Packages
 	sha256sums = 5687db2cbf84f00c63f0983dd4908afb07f1677b5f9adffe942fa89ab956ba3f
 	sha256sums = 314abf317aaefebf47963356029f55319f5e43936848c270d0ad2c691d9edc1a
 	sha256sums = 6642f9005eabe54f989541fb8dec6251cf57dde29f3170f8b49e28069f6a55ec
-	sha256sums = 4c67b9596a99c8b49d67df980c738dfa549830c200e283bbb015d2dee121c745
+	sha256sums = 0610197a1aff94b9e2181002c1f0d6fde6f6847e236c387d986902c591533d04
 
 pkgname = openai-chatgpt
