@@ -32,25 +32,38 @@ sudo pacman -Syu PACKAGE_NAME
 
 ## Development
 
+Repository layout:
+
+- `packages/`: each directory owns its `PKGBUILD`, generated `.SRCINFO`,
+  `.nvchecker.toml` update configuration, and supporting files.
+- `scripts/`: shared build, update, cleanup, and release commands.
+- `.github/workflows/`: scheduled update PRs and build validation.
+
 Install the development tools on Arch Linux:
 
 ```sh
 sudo pacman -S --needed base-devel devtools nvchecker pacman-contrib pyalpm shellcheck
 ```
 
-Package definitions live under `packages/`. Build every package or one package:
+Build every package or one package. The build script checks `.SRCINFO` against
+the `PKGBUILD` before running `makepkg`:
 
 ```sh
 ./scripts/build
 ./scripts/build PACKAGE_NAME
 ```
 
-Check every package or one package for an upstream update:
+Check every package or one package for an upstream update using `pkgctl` and
+nvchecker. Updates refresh versions, checksums, `.SRCINFO`, and the package table
+at the end of this README:
 
 ```sh
 ./scripts/update
 ./scripts/update PACKAGE_NAME
 ```
+
+Build sources should use versioned URLs and pinned checksums. Mutable release
+indexes belong in update discovery, not build inputs.
 
 After editing a `PKGBUILD` manually, regenerate its metadata:
 
@@ -67,6 +80,18 @@ repository files:
 ./scripts/clean
 ```
 
+## Automation
+
+The scheduled updater opens or refreshes one package-update PR. It uses the
+read-only workflow token for upstream GitHub checks through a temporary,
+mode-`0600` `.netrc`, removed when the update step exits. A separate GitHub App
+token creates the PR so validation runs. Local checks can use a GitHub token in
+`~/.netrc` (mode `0600`) if unauthenticated requests are rate-limited.
+
+Validation runs ShellCheck and builds every package. ShellCheck excludes
+`SC1091` because runtime configuration files are generated during packaging.
+Publishing is a separate, manual operation.
+
 ## Publishing
 
 Publishing requires the repository signing key and the `r2:pacshelf` rclone
@@ -78,7 +103,11 @@ sudo pacman -S --needed gnupg rclone
 git switch main
 git pull --ff-only
 ./scripts/release PACKAGE_NAME
-# or
+```
+
+Alternatively, initialize the repository with every package:
+
+```sh
 ./scripts/release all
 ```
 
@@ -87,7 +116,9 @@ existing package without changing `pkgver`.
 
 ## Packages
 
-- `aws-session-manager-plugin`
-- `openai-chatgpt`
-- `proton-pass`
-- `slack`
+| Package | Version |
+| --- | --- |
+| [`aws-session-manager-plugin`](packages/aws-session-manager-plugin) | `1.2.896.0-1` |
+| [`openai-chatgpt`](packages/openai-chatgpt) | `26.1007.21434-2` |
+| [`proton-pass`](packages/proton-pass) | `1.42.0-1` |
+| [`slack`](packages/slack) | `4.52.178-2` |

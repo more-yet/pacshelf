@@ -1,7 +1,7 @@
 pkgbase = slack
 	pkgdesc = Runtime installer for the official desktop client
 	pkgver = 4.52.178
-	pkgrel = 1
+	pkgrel = 2
 	url = https://slack.com/downloads/linux
 	arch = x86_64
 	license = MIT
@@ -32,7 +32,7 @@ pkgbase = slack
 	source = slack.desktop
 	source = LICENSE
 	source = slack-desktop-4.52.178-amd64.deb::https://downloads.slack-edge.com/desktop-releases/linux/x64/4.52.178/slack-desktop-4.52.178-amd64.deb
-	sha256sums = 9610ff377b77250074d9de8475f262062c8f2c2f36e5ac5bf678944b10a5c539
+	sha256sums = 772049e8aca53d7c0b2618b10a72b8cc874fb6f6e12d9b82278c046b96c7ad35
 	sha256sums = ea789ecac98b78251940dbf0c3cd94db1141db92a8666188a5e26f25cdf5bd26
 	sha256sums = 6642f9005eabe54f989541fb8dec6251cf57dde29f3170f8b49e28069f6a55ec
 	sha256sums = 1f110efeeb7d82e927fa209cd767278f27a4ddc7fed4a60c23fbc4ab374e1d3a

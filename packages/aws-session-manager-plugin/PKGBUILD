@@ -1,5 +1,3 @@
-# Maintainer: Aditya Singh
-
 pkgname=aws-session-manager-plugin
 pkgver=1.2.896.0
 pkgrel=1
@@ -43,7 +41,6 @@ prepare() {
 
     cd "${source_root}"
 
-    # The 1.2.835.0 source tag incorrectly contains VERSION=1.3.0.0.
     printf '%s' "${pkgver}" > VERSION
     GO111MODULE=off go run 'src/version/versiongenerator/version-gen.go'
 

@@ -1,5 +1,3 @@
-# Maintainer: Aditya Singh
-
 pkgname=proton-pass
 pkgver=1.42.0
 pkgrel=1
