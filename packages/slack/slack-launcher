@@ -3,15 +3,12 @@
 set -euo pipefail
 umask 077
 
-readonly release_file='/usr/share/slack-launcher/release'
-
 fail() {
     printf 'error: %s\n' "$*" >&2
     exit 1
 }
 
-# shellcheck source=/dev/null
-source "${release_file}"
+source /usr/share/slack-launcher/release
 
 [[ "${SLACK_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
     fail 'invalid Slack release version'
@@ -96,7 +93,6 @@ install_slack() (
     [[ -d "${app_dir}" && ! -L "${app_dir}" && -x "${app_dir}/slack" ]] ||
         fail 'Slack package does not contain the expected application'
 
-    # A user-owned setuid helper cannot provide Chromium's sandbox.
     rm -f "${app_dir}/chrome-sandbox"
     chmod -R u-s,g-s,go-w "${app_dir}"
 

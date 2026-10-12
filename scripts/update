@@ -65,3 +65,36 @@ for package_name in "${packages[@]}"; do
     mv "${srcinfo}" .SRCINFO
     printf '==> Updated: %s\n' "${package_name}"
 done
+
+readme="$(mktemp "${root}/README.md.XXXXXX")"
+trap 'rm -f "${readme}"' EXIT
+
+if ! awk '
+    /^## Packages$/ { found = 1; exit }
+    { print }
+    END { exit !found }
+' "${root}/README.md" > "${readme}"; then
+    printf 'error: README.md is missing the Packages section\n' >&2
+    exit 1
+fi
+
+{
+    printf '## Packages\n\n| Package | Version |\n| --- | --- |\n'
+    for package_dir in "${root}"/packages/*; do
+        [[ -f "${package_dir}/PKGBUILD" ]] || continue
+        awk -v package="$(basename "${package_dir}")" '
+            $1 == "pkgver" { version = $3 }
+            $1 == "pkgrel" { release = $3 }
+            END {
+                if (version == "" || release == "") {
+                    printf "error: missing version metadata in %s\n", FILENAME > "/dev/stderr"
+                    exit 1
+                }
+                printf "| [`%s`](packages/%s) | `%s-%s` |\n", package, package, version, release
+            }
+        ' "${package_dir}/.SRCINFO"
+    done
+} >> "${readme}"
+
+chmod 0644 "${readme}"
+mv "${readme}" "${root}/README.md"
