@@ -119,6 +119,6 @@ existing package without changing `pkgver`.
 | Package | Version |
 | --- | --- |
 | [`aws-session-manager-plugin`](packages/aws-session-manager-plugin) | `1.2.896.0-1` |
-| [`openai-chatgpt`](packages/openai-chatgpt) | `26.1007.21434-2` |
+| [`openai-chatgpt`](packages/openai-chatgpt) | `26.1013.40934-1` |
 | [`proton-pass`](packages/proton-pass) | `1.42.0-1` |
 | [`slack`](packages/slack) | `4.52.178-2` |
