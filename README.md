@@ -32,12 +32,9 @@ sudo pacman -Syu PACKAGE_NAME
 
 ## Development
 
-Repository layout:
-
-- `packages/`: each directory owns its `PKGBUILD`, generated `.SRCINFO`,
-  `.nvchecker.toml` update configuration, and supporting files.
-- `scripts/`: shared build, update, cleanup, and release commands.
-- `.github/workflows/`: scheduled update PRs and build validation.
+`packages/` contains package definitions, `.SRCINFO` metadata, and
+`.nvchecker.toml` update sources. `scripts/` contains the build, update, release,
+and cleanup commands. `.github/workflows/` runs updates and validation.
 
 Install the development tools on Arch Linux:
 
@@ -45,27 +42,22 @@ Install the development tools on Arch Linux:
 sudo pacman -S --needed base-devel devtools nvchecker pacman-contrib pyalpm shellcheck
 ```
 
-Build every package or one package. The build script checks `.SRCINFO` against
-the `PKGBUILD` before running `makepkg`:
+Build all packages or one package:
 
 ```sh
 ./scripts/build
 ./scripts/build PACKAGE_NAME
 ```
 
-Check every package or one package for an upstream update using `pkgctl` and
-nvchecker. Updates refresh versions, checksums, `.SRCINFO`, and the package table
-at the end of this README:
+Update versions, checksums, `.SRCINFO`, and the package table:
 
 ```sh
 ./scripts/update
 ./scripts/update PACKAGE_NAME
 ```
 
-Build sources should use versioned URLs and pinned checksums. Mutable release
-indexes belong in update discovery, not build inputs.
-
-After editing a `PKGBUILD` manually, regenerate its metadata:
+Use versioned build sources with pinned checksums. After a manual `PKGBUILD`
+change, regenerate its metadata:
 
 ```sh
 cd packages/PACKAGE_NAME
@@ -73,8 +65,7 @@ makepkg --printsrcinfo > .SRCINFO
 cd ../..
 ```
 
-Remove generated packages, downloaded sources, build directories, and local
-repository files:
+Remove generated files:
 
 ```sh
 ./scripts/clean
@@ -82,43 +73,41 @@ repository files:
 
 ## Automation
 
-The scheduled updater opens or refreshes one package-update PR. It uses the
-read-only workflow token for upstream GitHub checks through a temporary,
-mode-`0600` `.netrc`, removed when the update step exits. A separate GitHub App
-token creates the PR so validation runs. Local checks can use a GitHub token in
-`~/.netrc` (mode `0600`) if unauthenticated requests are rate-limited.
+The daily updater opens or refreshes one PR. It uses a temporary `.netrc` for
+GitHub checks and a GitHub App token to create signed commits and trigger PR
+validation. Local checks can use `~/.netrc` (mode `0600`) for GitHub authentication.
 
-Validation runs ShellCheck and builds every package. ShellCheck excludes
-`SC1091` because runtime configuration files are generated during packaging.
-Publishing is a separate, manual operation.
+Validation runs ShellCheck and builds all packages. **Merging does not publish
+packages.** Publishing is manual.
 
 ## Publishing
 
-Publishing requires the repository signing key and the `r2:pacshelf` rclone
-remote. Release one changed package, or initialize an empty repository from
-all packages:
+Publishing requires the signing key and the `r2:pacshelf` rclone remote:
 
 ```sh
 sudo pacman -S --needed gnupg rclone
 git switch main
 git pull --ff-only
-./scripts/release PACKAGE_NAME
+./scripts/release all
 ```
 
-Alternatively, initialize the repository with every package:
+To release one package from an existing repository:
 
 ```sh
-./scripts/release all
+./scripts/release PACKAGE_NAME
 ```
 
 Use `pkgrel=1` for a new upstream version. Increment `pkgrel` when changing an
 existing package without changing `pkgver`.
+
+Release uploads signed packages before the signed repository databases. Existing
+remote package files are immutable; changed builds need a new package release.
 
 ## Packages
 
 | Package | Version |
 | --- | --- |
 | [`aws-session-manager-plugin`](packages/aws-session-manager-plugin) | `1.2.896.0-1` |
-| [`openai-chatgpt`](packages/openai-chatgpt) | `26.1027.51404-1` |
+| [`openai-chatgpt`](packages/openai-chatgpt) | `26.1027.51404-2` |
 | [`proton-pass`](packages/proton-pass) | `1.43.0-1` |
-| [`slack`](packages/slack) | `4.53.276-1` |
+| [`slack`](packages/slack) | `4.53.276-2` |
