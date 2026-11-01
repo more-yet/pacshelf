@@ -50,64 +50,92 @@ verify_signature() {
         '
 }
 
-"${root}/scripts/build" "${selection}"
 rm -rf "${repo_root}"
-mkdir -p "${repo_dir}"
+mkdir -p "${repo_dir}" "${PKGDEST}"
 
-if [[ "${selection}" != all ]]; then
-    rclone copy "${remote_dir}" "${repo_dir}" \
-        --include '*.pkg.tar.*'
-fi
+rclone copy "${remote_dir}" "${repo_dir}" \
+    --include '*.pkg.tar.*'
 
 package_name() {
     bsdtar -xOf "$1" .PKGINFO |
-        awk -F ' = ' '$1 == "pkgname" { print $2; exit }'
+        awk -F ' = ' -v filename="${1##*/}" '
+            $1 == "pkgname" { name = $2 }
+            $1 == "pkgver" { version = $2 }
+            $1 == "arch" { arch = $2 }
+            END {
+                sub(/^[0-9]+:/, "", version)
+                if (name == "" || version == "" || arch == "" ||
+                    index(filename, name "-" version "-" arch ".pkg.tar.") != 1) {
+                    printf "error: package identity does not match filename: %s\n", filename > "/dev/stderr"
+                    exit 1
+                }
+                print name
+            }
+        '
 }
 
 shopt -s nullglob
 existing_packages=("${repo_dir}"/*.pkg.tar.*)
-shopt -u nullglob
 
 if [[ "${selection}" != all && ${#existing_packages[@]} -eq 0 ]]; then
     printf 'error: run release all to initialize the repository\n' >&2
     exit 1
 fi
 
-for pkgbuild in "${pkgbuilds[@]}"; do
-    package_list="$(cd "${pkgbuild%/*}" && makepkg --packagelist)"
-    while IFS= read -r package_file; do
-        name="$(package_name "${package_file}")"
-        [[ -n "${name}" ]] || {
-            printf 'error: invalid package: %s\n' "${package_file}" >&2
-            exit 1
-        }
+for existing in "${existing_packages[@]}"; do
+    [[ "${existing}" == *.sig ]] && continue
+    verify_signature "${existing}"
+done
 
+declare -A release_files=()
+for pkgbuild in "${pkgbuilds[@]}"; do
+    package_dir="${pkgbuild%/*}"
+    diff -u "${package_dir}/.SRCINFO" <(cd "${package_dir}" && makepkg --printsrcinfo)
+    package_list="$(cd "${pkgbuild%/*}" && makepkg --packagelist)"
+    build_needed=0
+    while IFS= read -r package_file; do
+        [[ -f "${repo_dir}/${package_file##*/}" ]] || build_needed=1
+    done <<< "${package_list}"
+
+    if (( build_needed )); then
+        "${root}/scripts/build" "${package_dir##*/}"
+    fi
+
+    while IFS= read -r package_file; do
+        published_file="${repo_dir}/${package_file##*/}"
+        if [[ -f "${published_file}" ]]; then
+            printf '==> Reusing published package: %s\n' "${package_file##*/}"
+        else
+            gpg --batch --yes --detach-sign \
+                --local-user "${signing_key}" \
+                "${package_file}"
+            verify_signature "${package_file}"
+            install -m644 "${package_file}" "${package_file}.sig" "${repo_dir}/"
+        fi
+        release_files["${published_file}"]=1
+        name="$(package_name "${published_file}")"
         for existing in "${existing_packages[@]}"; do
             [[ "${existing}" == *.sig ]] && continue
+            [[ "${existing}" == "${published_file}" ]] && continue
             [[ -f "${existing}" ]] || continue
             if [[ "$(package_name "${existing}")" == "${name}" ]]; then
                 rm -f "${existing}" "${existing}.sig"
             fi
         done
-
-        gpg --batch --yes --detach-sign \
-            --local-user "${signing_key}" \
-            "${package_file}"
-
-        install -m644 "${package_file}" "${package_file}.sig" "${repo_dir}/"
     done <<< "${package_list}"
 done
 
 gpg --batch --armor --export "${signing_key}" > "${repo_root}/${repo_name}.asc"
 
-shopt -s nullglob
 repo_packages=("${repo_dir}"/*.pkg.tar.*)
-shopt -u nullglob
 
 package_files=()
 for package_file in "${repo_packages[@]}"; do
     [[ "${package_file}" == *.sig ]] && continue
-    verify_signature "${package_file}"
+    if [[ "${selection}" == all && ${release_files["${package_file}"]:-0} == 0 ]]; then
+        rm -f "${package_file}" "${package_file}.sig"
+        continue
+    fi
     package_files+=("${package_file}")
 done
 
