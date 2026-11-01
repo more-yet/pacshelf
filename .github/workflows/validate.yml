@@ -30,11 +30,6 @@ jobs:
       image: archlinux:latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
       - name: Prepare Arch environment
         shell: bash
         run: |
@@ -42,6 +37,7 @@ jobs:
 
           pacman -Syu --noconfirm --needed \
             base-devel \
+            git \
             shellcheck \
             sudo
 
@@ -52,28 +48,23 @@ jobs:
             > /etc/sudoers.d/builder
 
           chmod 0440 /etc/sudoers.d/builder
-          chown -R builder:builder "${GITHUB_WORKSPACE}"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
 
       - name: ShellCheck
         shell: bash
         run: |
           set -euo pipefail
 
-          mapfile -t shell_files < <(
-            {
-              find scripts -type f -print
-              find packages -type f -perm -u=x -print
-            } | sort
-          )
-
-          shellcheck --exclude=SC1091 "${shell_files[@]}"
+          shellcheck --exclude=SC1091 scripts/* packages/*/*-launcher
 
       - name: Build packages
         shell: bash
         run: |
           set -euo pipefail
 
-          sudo -u builder -- bash -lc "
-            cd '${GITHUB_WORKSPACE}'
-            ./scripts/build
-          "
+          chown -R builder:builder "${GITHUB_WORKSPACE}"
+          runuser -u builder -- ./scripts/build

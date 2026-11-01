@@ -8,26 +8,16 @@ url='https://github.com/aws/session-manager-plugin'
 license=('Apache-2.0')
 options=('!debug')
 
-depends=(
-    'glibc'
-)
-
-makedepends=(
-    'go'
-)
+depends=('glibc')
+makedepends=('go')
 
 optdepends=(
     'aws-cli: AWS CLI v1 integration'
     'aws-cli-v2: AWS CLI v2 integration'
 )
 
-provides=(
-    "session-manager-plugin=${pkgver}"
-)
-
-conflicts=(
-    'session-manager-plugin'
-)
+provides=("session-manager-plugin=${pkgver}")
+conflicts=('session-manager-plugin')
 
 source=(
     "session-manager-plugin-${pkgver}.tar.gz::https://github.com/aws/session-manager-plugin/archive/refs/tags/${pkgver}.tar.gz"
@@ -72,21 +62,8 @@ package() {
         "${srcdir}/session-manager-plugin" \
         "${pkgdir}/usr/bin/session-manager-plugin"
 
-    install -Dm644 \
-        "${source_root}/README.md" \
-        "${pkgdir}/usr/share/doc/${pkgname}/README.md"
-
-    install -Dm644 \
-        "${source_root}/RELEASENOTES.md" \
-        "${pkgdir}/usr/share/doc/${pkgname}/RELEASENOTES.md"
-
-    install -Dm644 \
-        "${source_root}/NOTICE" \
-        "${pkgdir}/usr/share/doc/${pkgname}/NOTICE"
-
-    install -Dm644 \
-        "${source_root}/THIRD-PARTY" \
-        "${pkgdir}/usr/share/doc/${pkgname}/THIRD-PARTY"
+    install -Dm644 -t "${pkgdir}/usr/share/doc/${pkgname}/" \
+        "${source_root}/"{README.md,RELEASENOTES.md,NOTICE,THIRD-PARTY}
 
     install -Dm644 \
         "${source_root}/LICENSE" \

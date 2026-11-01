@@ -13,76 +13,37 @@ selection="${1:-all}"
 mkdir -p "${root}/.cache/sources"
 export SRCDEST="${root}/.cache/sources"
 
-packages=()
+pkgbuilds=("${root}"/packages/*/PKGBUILD)
+if [[ "${selection}" != all ]]; then
+    pkgbuilds=("${root}/packages/${selection}/PKGBUILD")
+fi
 
-if [[ "${selection}" == all ]]; then
-    for package_dir in "${root}"/packages/*; do
-        [[ -f "${package_dir}/PKGBUILD" ]] || continue
-        packages+=("$(basename "${package_dir}")")
-    done
-elif [[ "${selection}" =~ ^[a-z0-9@._+-]+$ ]] &&
-    [[ -f "${root}/packages/${selection}/PKGBUILD" ]]; then
-    packages=("${selection}")
-else
+if [[ ! "${selection}" =~ ^[a-z0-9@._+-]+$ || ! -f "${pkgbuilds[0]}" ]]; then
     printf 'error: package not found: %s\n' "${selection}" >&2
     exit 1
 fi
 
-for package_name in "${packages[@]}"; do
-    package_dir="${root}/packages/${package_name}"
-    [[ -f "${package_dir}/.nvchecker.toml" ]] || {
-        printf 'error: missing .nvchecker.toml: %s\n' "${package_name}" >&2
-        exit 1
-    }
+work_dir="$(mktemp -d "${root}/.cache/update.XXXXXX")"
+trap 'rm -rf "${work_dir}"' EXIT
 
-    cd "${package_dir}"
-    printf '==> Checking: %s\n' "${package_name}"
-
-    status=0
-    pkgctl version check -v || status=$?
-
-    case "${status}" in
-        0)
-            printf '==> Current: %s\n' "${package_name}"
-            continue
-            ;;
-        2)
-            pkgctl version upgrade -v
-            ;;
-        *)
-            printf 'error: update check failed for %s (%d)\n' \
-                "${package_name}" "${status}" >&2
-            exit 1
-            ;;
-    esac
-
-    srcinfo="$(mktemp "${package_dir}/.SRCINFO.XXXXXX")"
-    if ! makepkg --printsrcinfo > "${srcinfo}"; then
-        rm -f "${srcinfo}"
-        exit 1
-    fi
-    chmod 0644 "${srcinfo}"
-    mv "${srcinfo}" .SRCINFO
-    printf '==> Updated: %s\n' "${package_name}"
+for pkgbuild in "${pkgbuilds[@]}"; do
+    cd "${pkgbuild%/*}"
+    pkgctl version upgrade -v
+    makepkg --printsrcinfo > "${work_dir}/.SRCINFO"
+    chmod 0644 "${work_dir}/.SRCINFO"
+    mv "${work_dir}/.SRCINFO" .SRCINFO
 done
 
-readme="$(mktemp "${root}/README.md.XXXXXX")"
-trap 'rm -f "${readme}"' EXIT
-
-if ! awk '
-    /^## Packages$/ { found = 1; exit }
+awk '
+    /^## Packages$/ { exit }
     { print }
-    END { exit !found }
-' "${root}/README.md" > "${readme}"; then
-    printf 'error: README.md is missing the Packages section\n' >&2
-    exit 1
-fi
+' "${root}/README.md" > "${work_dir}/README.md"
 
 {
     printf '## Packages\n\n| Package | Version |\n| --- | --- |\n'
-    for package_dir in "${root}"/packages/*; do
-        [[ -f "${package_dir}/PKGBUILD" ]] || continue
-        awk -v package="$(basename "${package_dir}")" '
+    for pkgbuild in "${root}"/packages/*/PKGBUILD; do
+        package_dir="${pkgbuild%/*}"
+        awk -v package="${package_dir##*/}" '
             $1 == "pkgver" { version = $3 }
             $1 == "pkgrel" { release = $3 }
             END {
@@ -94,7 +55,7 @@ fi
             }
         ' "${package_dir}/.SRCINFO"
     done
-} >> "${readme}"
+} >> "${work_dir}/README.md"
 
-chmod 0644 "${readme}"
-mv "${readme}" "${root}/README.md"
+chmod 0644 "${work_dir}/README.md"
+mv "${work_dir}/README.md" "${root}/README.md"
