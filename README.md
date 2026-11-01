@@ -100,8 +100,9 @@ To release one package from an existing repository:
 Use `pkgrel=1` for a new upstream version. Increment `pkgrel` when changing an
 existing package without changing `pkgver`.
 
-Release uploads signed packages before the signed repository databases. Existing
-remote package files are immutable; changed builds need a new package release.
+Release reuses verified published packages and builds only missing versions.
+It uploads signed packages before the signed repository databases. Remote
+package files are immutable; changed builds need a new package release.
 
 ## Packages
 
