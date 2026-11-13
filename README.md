@@ -112,3 +112,4 @@ package files are immutable; changed builds need a new package release.
 | [`openai-chatgpt`](packages/openai-chatgpt) | `26.1111.21308-1` |
 | [`proton-pass`](packages/proton-pass) | `1.43.1-1` |
 | [`slack`](packages/slack) | `4.53.287-1` |
+| [`vscodium`](packages/vscodium) | `1.143.17232-1` |
