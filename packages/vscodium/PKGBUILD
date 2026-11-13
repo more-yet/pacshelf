@@ -1,0 +1,73 @@
+pkgname=vscodium
+pkgver=1.143.17232
+pkgrel=1
+
+pkgdesc='Free/Libre Open Source Software Binaries of VS Code'
+arch=('x86_64')
+url='https://vscodium.com/'
+license=('MIT')
+options=('!debug' '!strip')
+
+depends=(
+    'alsa-lib'
+    'at-spi2-core'
+    'bash'
+    'ca-certificates'
+    'cairo'
+    'curl'
+    'dbus'
+    'expat'
+    'glib2'
+    'glibc'
+    'gtk3'
+    'libcups'
+    'libdrm'
+    'libgcc'
+    'libstdc++'
+    'libx11'
+    'libxcb'
+    'libxcomposite'
+    'libxdamage'
+    'libxext'
+    'libxfixes'
+    'libxkbcommon'
+    'libxkbfile'
+    'libxrandr'
+    'mesa'
+    'nspr'
+    'nss'
+    'pango'
+    'systemd-libs'
+    'xdg-utils'
+)
+
+optdepends=(
+    'bubblewrap: terminal sandboxing'
+    'git: Git integration'
+    'libsecret: credential storage'
+    'org.freedesktop.secrets: credential storage service'
+    'socat: terminal sandboxing'
+    'vulkan-icd-loader: Vulkan support'
+)
+
+conflicts=('vscodium-bin' 'vscodium-electron')
+
+source=("https://github.com/VSCodium/vscodium/releases/download/${pkgver}/codium_${pkgver}_amd64.deb")
+
+sha256sums=('988330df203f4d2dbfb9ee0052a0356a27af7c0a2a7ff606424c531ae4a7b538')
+
+package() {
+    bsdtar -xf "${srcdir}/data.tar.xz" -C "${pkgdir}"
+
+    install -Dm644 \
+        "${pkgdir}/usr/share/codium/resources/app/LICENSE.txt" \
+        "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
+    install -dm755 "${pkgdir}/usr/bin"
+    ln -s /usr/share/codium/bin/codium "${pkgdir}/usr/bin/codium"
+
+    mv "${pkgdir}/usr/share/zsh/vendor-completions" \
+        "${pkgdir}/usr/share/zsh/site-functions"
+
+    chmod 4755 "${pkgdir}/usr/share/codium/chrome-sandbox"
+}
