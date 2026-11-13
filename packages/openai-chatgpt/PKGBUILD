@@ -1,5 +1,5 @@
 pkgname=openai-chatgpt
-pkgver=26.1103.31037
+pkgver=26.1111.21308
 pkgrel=1
 
 pkgdesc='Runtime installer for the official ChatGPT desktop app'
@@ -75,7 +75,7 @@ noextract=("${_deb}")
 sha256sums=('a65ab81dd690b05fd449025a3d9554f096b343cfda07cf2cbb5338341c68656c'
             '314abf317aaefebf47963356029f55319f5e43936848c270d0ad2c691d9edc1a'
             '6642f9005eabe54f989541fb8dec6251cf57dde29f3170f8b49e28069f6a55ec'
-            '32fed80ad3f8caf666e5860022361e9709d64aa318cfb19f548e8b458d4f6793')
+            '4b443bc557350a1b193bc2f1bae207c9ea3c9fb5d94f7c94a5d3dbaa8b552352')
 
 package() {
     local deb_size
