@@ -1,0 +1,5 @@
+[hyprworks]
+source = "github"
+github = "more-yet/hyprworks"
+use_max_tag = true
+prefix = "v"
