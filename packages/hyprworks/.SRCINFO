@@ -1,0 +1,56 @@
+pkgbase = hyprworks
+	pkgdesc = Lua desktop shell toolkit for Hyprland
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/more-yet/hyprworks
+	arch = x86_64
+	license = MIT
+	license = BSD-3-Clause
+	makedepends = cmake>=4.5
+	makedepends = hyprwayland-scanner>=0.4.0
+	makedepends = ninja
+	makedepends = wayland-protocols
+	depends = abseil-cpp
+	depends = aquamarine>=0.10.0
+	depends = libaquamarine.so
+	depends = cairo
+	depends = file
+	depends = glib2>=2.90.1
+	depends = glibc
+	depends = hyprlang>=0.6.0
+	depends = libhyprlang.so
+	depends = hyprutils>=0.14.2
+	depends = libhyprutils.so
+	depends = iniparser
+	depends = json-c>=0.19
+	depends = libdrm
+	depends = libgcc
+	depends = libglvnd
+	depends = libheif
+	depends = libjpeg-turbo
+	depends = libjxl
+	depends = libpng
+	depends = libpulse>=17.0
+	depends = librsvg
+	depends = libstdc++
+	depends = libwebp
+	depends = libxkbcommon>=1.13.2
+	depends = lua>=5.5.1
+	depends = mesa
+	depends = pango
+	depends = pixman
+	depends = systemd-libs>=262
+	depends = wayland>=1.26.0
+	optdepends = hyprland: workspace integration and global shortcuts
+	optdepends = pulse-native-provider: audio control
+	optdepends = upower: power and battery information
+	optdepends = uwsm: graphical session service management
+	options = !debug
+	source = hyprworks-0.1.0.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.1.0.tar.gz
+	source = hyprgraphics-0.6.0.tar.gz::https://github.com/hyprwm/hyprgraphics/archive/refs/tags/v0.6.0.tar.gz
+	source = hyprtoolkit-0.6.0.tar.gz::https://github.com/hyprwm/hyprtoolkit/archive/refs/tags/v0.6.0.tar.gz
+	sha256sums = d49154aca2fc5af1bc1650180668f2359f3723a402766f2ef99846312821dc9b
+	sha256sums = 27e9e19ff59ba75a2963d72c3dcb5c0840b266b90d7fca6d5df7cac105419b08
+	sha256sums = 53c41be72af97d9ede274a63c9c1034c58726d862905763ed6e5a564ae42ba6b
+
+pkgname = hyprworks
