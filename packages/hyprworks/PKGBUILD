@@ -1,5 +1,5 @@
 pkgname=hyprworks
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 _hyprgraphicsver=0.6.0
 _hyprtoolkitver=0.6.0
@@ -64,11 +64,9 @@ source=(
     "hyprtoolkit-${_hyprtoolkitver}.tar.gz::https://github.com/hyprwm/hyprtoolkit/archive/refs/tags/v${_hyprtoolkitver}.tar.gz"
 )
 
-sha256sums=(
-    'd49154aca2fc5af1bc1650180668f2359f3723a402766f2ef99846312821dc9b'
-    '27e9e19ff59ba75a2963d72c3dcb5c0840b266b90d7fca6d5df7cac105419b08'
-    '53c41be72af97d9ede274a63c9c1034c58726d862905763ed6e5a564ae42ba6b'
-)
+sha256sums=('9da4ba6e77679e2c3df61096a50af0c7cf47c832bd402153d6b99d0a90a49a37'
+            '27e9e19ff59ba75a2963d72c3dcb5c0840b266b90d7fca6d5df7cac105419b08'
+            '53c41be72af97d9ede274a63c9c1034c58726d862905763ed6e5a564ae42ba6b')
 
 prepare() {
     patch -d "hyprgraphics-${_hyprgraphicsver}" -Np1 \
