@@ -1,6 +1,6 @@
 pkgbase = hyprworks
 	pkgdesc = Lua desktop shell toolkit for Hyprland
-	pkgver = 0.1.4
+	pkgver = 0.1.5
 	pkgrel = 1
 	url = https://github.com/more-yet/hyprworks
 	arch = x86_64
@@ -46,10 +46,10 @@ pkgbase = hyprworks
 	optdepends = upower: power and battery information
 	optdepends = uwsm: graphical session service management
 	options = !debug
-	source = hyprworks-0.1.4.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.1.4.tar.gz
+	source = hyprworks-0.1.5.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.1.5.tar.gz
 	source = hyprgraphics-0.6.0.tar.gz::https://github.com/hyprwm/hyprgraphics/archive/refs/tags/v0.6.0.tar.gz
 	source = hyprtoolkit-0.6.0.tar.gz::https://github.com/hyprwm/hyprtoolkit/archive/refs/tags/v0.6.0.tar.gz
-	sha256sums = f91b740da0acac2ba70fc42fbe96b7fe8bdb68f85db351a9c1a4c247756b8a21
+	sha256sums = 98964947c596732908d6ad4282e34858f5ba2145f879236a2575ea56fa3cd28e
 	sha256sums = 27e9e19ff59ba75a2963d72c3dcb5c0840b266b90d7fca6d5df7cac105419b08
 	sha256sums = 53c41be72af97d9ede274a63c9c1034c58726d862905763ed6e5a564ae42ba6b
 
