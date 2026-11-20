@@ -1,54 +1,35 @@
 pkgname=hyprworks
-pkgver=0.1.9
+pkgver=0.2.0
 pkgrel=1
-_hyprgraphicsver=0.6.0
-_hyprtoolkitver=0.6.0
 
 pkgdesc='Lua desktop shell toolkit for Hyprland'
 arch=('x86_64')
 url='https://github.com/more-yet/hyprworks'
-license=('MIT' 'BSD-3-Clause')
+license=('MIT' 'BSD-3-Clause' 'MIT-CMU')
 options=('!debug')
 
 depends=(
-    'abseil-cpp'
-    'aquamarine>=0.10.0'
-    'libaquamarine.so'
     'cairo'
-    'file'
     'glib2>=2.90.1'
     'glibc'
-    'hyprlang>=0.6.0'
-    'libhyprlang.so'
-    'hyprutils>=0.14.2'
-    'libhyprutils.so'
-    'iniparser'
     'json-c>=0.19'
-    'libdrm'
     'libgcc'
-    'libglvnd'
-    'libheif'
-    'libjpeg-turbo'
-    'libjxl'
     'libpng'
     'libpulse>=17.0'
     'librsvg'
     'libstdc++'
-    'libwebp'
     'libxkbcommon>=1.13.2'
     'lua>=5.5.1'
-    'mesa'
     'pango'
-    'pixman'
     'systemd-libs>=262'
     'wayland>=1.26.0'
 )
 
 makedepends=(
     'cmake>=4.5'
-    'hyprwayland-scanner>=0.4.0'
     'ninja'
-    'wayland-protocols'
+    'pkgconf'
+    'wayland-protocols>=1.45'
 )
 
 optdepends=(
@@ -60,44 +41,27 @@ optdepends=(
 
 source=(
     "hyprworks-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz"
-    "hyprgraphics-${_hyprgraphicsver}.tar.gz::https://github.com/hyprwm/hyprgraphics/archive/refs/tags/v${_hyprgraphicsver}.tar.gz"
-    "hyprtoolkit-${_hyprtoolkitver}.tar.gz::https://github.com/hyprwm/hyprtoolkit/archive/refs/tags/v${_hyprtoolkitver}.tar.gz"
 )
 
-sha256sums=('0171dc916ed8c86ed928dfd5ae5a87e87ea801f69e094de8a1992a0625957517'
-            '27e9e19ff59ba75a2963d72c3dcb5c0840b266b90d7fca6d5df7cac105419b08'
-            '53c41be72af97d9ede274a63c9c1034c58726d862905763ed6e5a564ae42ba6b')
-
-prepare() {
-    patch -d "hyprgraphics-${_hyprgraphicsver}" -Np1 \
-        -i "${srcdir}/hyprworks-${pkgver}/patches/hyprgraphics-${_hyprgraphicsver}-resource-lifetime.patch"
-    patch -d "hyprtoolkit-${_hyprtoolkitver}" -Np1 \
-        -i "${srcdir}/hyprworks-${pkgver}/patches/hyprtoolkit-${_hyprtoolkitver}-shell.patch"
-}
+sha256sums=('8474bcc12a2a851f34739cf99d3d6f89cecadbcd99ff48cd39bca890ce9d381b')
 
 build() {
-    local source
     export CXXFLAGS="${CXXFLAGS} -ffile-prefix-map=${srcdir}=."
-    export PKG_CONFIG_PATH="${srcdir}/deps/lib/pkgconfig"
-
-    for source in "hyprgraphics-${_hyprgraphicsver}" "hyprtoolkit-${_hyprtoolkitver}"; do
-        cmake -S "${source}" -B "build-${source}" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_SCAN_FOR_MODULES=OFF \
-            -DCMAKE_INSTALL_PREFIX="${srcdir}/deps" \
-            -DCMAKE_INSTALL_LIBDIR=lib \
-            "-DCMAKE_INSTALL_RPATH=\$ORIGIN"
-        cmake --build "build-${source}" --target "${source%-*}"
-        cmake --install "build-${source}"
-    done
 
     cmake -S "hyprworks-${pkgver}" -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
+        -DHYPRWORKS_BUILD_TESTS=ON \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_INSTALL_LIBDIR=lib
     cmake --build build
 }
 
+check() {
+    ctest --test-dir build --output-on-failure
+}
+
 package() {
     DESTDIR="${pkgdir}" cmake --install build
+    install -Dm644 "hyprworks-${pkgver}"/protocols/*.xml \
+        -t "${pkgdir}/usr/share/licenses/${pkgname}/"
 }
