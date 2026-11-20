@@ -1,44 +1,28 @@
 pkgbase = hyprworks
 	pkgdesc = Lua desktop shell toolkit for Hyprland
-	pkgver = 0.1.9
+	pkgver = 0.2.0
 	pkgrel = 1
 	url = https://github.com/more-yet/hyprworks
 	arch = x86_64
 	license = MIT
 	license = BSD-3-Clause
+	license = MIT-CMU
 	makedepends = cmake>=4.5
-	makedepends = hyprwayland-scanner>=0.4.0
 	makedepends = ninja
-	makedepends = wayland-protocols
-	depends = abseil-cpp
-	depends = aquamarine>=0.10.0
-	depends = libaquamarine.so
+	makedepends = pkgconf
+	makedepends = wayland-protocols>=1.45
 	depends = cairo
-	depends = file
 	depends = glib2>=2.90.1
 	depends = glibc
-	depends = hyprlang>=0.6.0
-	depends = libhyprlang.so
-	depends = hyprutils>=0.14.2
-	depends = libhyprutils.so
-	depends = iniparser
 	depends = json-c>=0.19
-	depends = libdrm
 	depends = libgcc
-	depends = libglvnd
-	depends = libheif
-	depends = libjpeg-turbo
-	depends = libjxl
 	depends = libpng
 	depends = libpulse>=17.0
 	depends = librsvg
 	depends = libstdc++
-	depends = libwebp
 	depends = libxkbcommon>=1.13.2
 	depends = lua>=5.5.1
-	depends = mesa
 	depends = pango
-	depends = pixman
 	depends = systemd-libs>=262
 	depends = wayland>=1.26.0
 	optdepends = hyprland: workspace integration and global shortcuts
@@ -46,11 +30,7 @@ pkgbase = hyprworks
 	optdepends = upower: power and battery information
 	optdepends = uwsm: graphical session service management
 	options = !debug
-	source = hyprworks-0.1.9.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.1.9.tar.gz
-	source = hyprgraphics-0.6.0.tar.gz::https://github.com/hyprwm/hyprgraphics/archive/refs/tags/v0.6.0.tar.gz
-	source = hyprtoolkit-0.6.0.tar.gz::https://github.com/hyprwm/hyprtoolkit/archive/refs/tags/v0.6.0.tar.gz
-	sha256sums = 0171dc916ed8c86ed928dfd5ae5a87e87ea801f69e094de8a1992a0625957517
-	sha256sums = 27e9e19ff59ba75a2963d72c3dcb5c0840b266b90d7fca6d5df7cac105419b08
-	sha256sums = 53c41be72af97d9ede274a63c9c1034c58726d862905763ed6e5a564ae42ba6b
+	source = hyprworks-0.2.0.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.2.0.tar.gz
+	sha256sums = 8474bcc12a2a851f34739cf99d3d6f89cecadbcd99ff48cd39bca890ce9d381b
 
 pkgname = hyprworks
