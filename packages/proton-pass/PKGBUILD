@@ -1,5 +1,5 @@
 pkgname=proton-pass
-pkgver=1.43.1
+pkgver=1.44.0
 pkgrel=1
 
 pkgdesc='Open-source and secure identity manager'
@@ -42,7 +42,7 @@ conflicts=('proton-pass-bin')
 
 source=("https://proton.me/download/pass/linux/proton-pass_${pkgver}_amd64.deb")
 
-sha512sums=('0060237052fca72d74f985f6d93a0943c97a83592df368ee2516ebacc057de4f451fc8b8458f367f311bd5700da5849d815b3ccc8543718dbb22f80bd3cd949b')
+sha512sums=('70b9b3c05074a79cbc8efca92c3974d56ca34ad1d7d2ca80817116af3f0fb1a40220550f05af5a4dc91ff754c5aafb378b15dbd658d57241e711c923b94d4f30')
 
 package() {
     bsdtar -xf "${srcdir}/data.tar.xz" -C "${pkgdir}"
