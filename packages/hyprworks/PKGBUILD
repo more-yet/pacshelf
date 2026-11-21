@@ -1,5 +1,5 @@
 pkgname=hyprworks
-pkgver=0.2.0
+pkgver=0.1.0
 pkgrel=1
 
 pkgdesc='Lua desktop shell toolkit for Hyprland'
@@ -36,14 +36,13 @@ optdepends=(
     'hyprland: workspace integration and global shortcuts'
     'pulse-native-provider: audio control'
     'upower: power and battery information'
-    'uwsm: graphical session service management'
 )
 
 source=(
     "hyprworks-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz"
 )
 
-sha256sums=('8474bcc12a2a851f34739cf99d3d6f89cecadbcd99ff48cd39bca890ce9d381b')
+sha256sums=('45d37c6ffda50bd784a3cc88c8d0d1f9e5fa0862df51e5f6d10b5fa67d37ac85')
 
 build() {
     export CXXFLAGS="${CXXFLAGS} -ffile-prefix-map=${srcdir}=."
