@@ -1,6 +1,6 @@
 pkgbase = hyprworks
 	pkgdesc = Lua desktop shell toolkit for Hyprland
-	pkgver = 0.1.7
+	pkgver = 0.1.8
 	pkgrel = 1
 	url = https://github.com/more-yet/hyprworks
 	arch = x86_64
@@ -23,13 +23,14 @@ pkgbase = hyprworks
 	depends = libxkbcommon>=1.13.2
 	depends = lua>=5.5.1
 	depends = pango
+	depends = polkit>=128
 	depends = systemd-libs>=262
 	depends = wayland>=1.26.0
 	optdepends = hyprland: workspace integration and global shortcuts
 	optdepends = pulse-native-provider: audio control
 	optdepends = upower: power and battery information
 	options = !debug
-	source = hyprworks-0.1.7.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.1.7.tar.gz
-	sha256sums = 0ff929cb809f20296836780bdb723014388975760a7eb8656a4608d0dca83293
+	source = hyprworks-0.1.8.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.1.8.tar.gz
+	sha256sums = 5f6fe7216967ba4bc1bb4719fdc605c3c8707b94c2d60a6aabd98c9d64c47434
 
 pkgname = hyprworks
