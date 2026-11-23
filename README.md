@@ -112,5 +112,5 @@ package files are immutable; changed builds need a new package release.
 | [`hyprworks`](packages/hyprworks) | `0.1.9-1` |
 | [`openai-chatgpt`](packages/openai-chatgpt) | `26.1117.41037-1` |
 | [`proton-pass`](packages/proton-pass) | `1.44.0-1` |
-| [`slack`](packages/slack) | `4.53.287-1` |
+| [`slack`](packages/slack) | `4.53.292-1` |
 | [`vscodium`](packages/vscodium) | `1.143.17232-1` |
