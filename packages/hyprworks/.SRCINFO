@@ -1,6 +1,6 @@
 pkgbase = hyprworks
 	pkgdesc = Lua desktop shell toolkit for Hyprland
-	pkgver = 0.2.0
+	pkgver = 0.3.0
 	pkgrel = 1
 	url = https://github.com/more-yet/hyprworks
 	arch = x86_64
@@ -30,7 +30,7 @@ pkgbase = hyprworks
 	optdepends = pulse-native-provider: audio control
 	optdepends = upower: power and battery information
 	options = !debug
-	source = hyprworks-0.2.0.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.2.0.tar.gz
-	sha256sums = c9575e72c84bb5ec7df77c9486cd03df961dad1b2b27d8f8d35136c529f0f658
+	source = hyprworks-0.3.0.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.3.0.tar.gz
+	sha256sums = 5bbfb2858478a1e6c92722d933f319fd98f9bfd43603603f3d535d83bfb6906a
 
 pkgname = hyprworks
