@@ -1,6 +1,6 @@
 pkgbase = hyprworks
 	pkgdesc = Lua desktop shell toolkit for Hyprland
-	pkgver = 0.3.3
+	pkgver = 0.4.0
 	pkgrel = 1
 	url = https://github.com/more-yet/hyprworks
 	arch = x86_64
@@ -16,6 +16,7 @@ pkgbase = hyprworks
 	depends = glibc
 	depends = json-c>=0.19
 	depends = libgcc
+	depends = libpipewire>=1:1.4
 	depends = libpng
 	depends = libpulse>=17.0
 	depends = librsvg
@@ -29,8 +30,9 @@ pkgbase = hyprworks
 	optdepends = hyprland: workspace integration and global shortcuts
 	optdepends = pulse-native-provider: audio control
 	optdepends = upower: power and battery information
+	optdepends = xdg-desktop-portal: ScreenCast portal integration
 	options = !debug
-	source = hyprworks-0.3.3.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.3.3.tar.gz
-	sha256sums = 5ffd2b47735daf0d6c02d9afca1f456a94a0beeebc3ce5098307a25e2f4c62a4
+	source = hyprworks-0.4.0.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.4.0.tar.gz
+	sha256sums = 7a8ed4cae249215e2304643f1916805d793459bd49ee99ae3e5ee1bac1f9bc29
 
 pkgname = hyprworks

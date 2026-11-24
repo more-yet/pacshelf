@@ -1,5 +1,5 @@
 pkgname=hyprworks
-pkgver=0.3.3
+pkgver=0.4.0
 pkgrel=1
 
 pkgdesc='Lua desktop shell toolkit for Hyprland'
@@ -14,6 +14,7 @@ depends=(
     'glibc'
     'json-c>=0.19'
     'libgcc'
+    'libpipewire>=1:1.4'
     'libpng'
     'libpulse>=17.0'
     'librsvg'
@@ -37,13 +38,14 @@ optdepends=(
     'hyprland: workspace integration and global shortcuts'
     'pulse-native-provider: audio control'
     'upower: power and battery information'
+    'xdg-desktop-portal: ScreenCast portal integration'
 )
 
 source=(
     "hyprworks-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz"
 )
 
-sha256sums=('5ffd2b47735daf0d6c02d9afca1f456a94a0beeebc3ce5098307a25e2f4c62a4')
+sha256sums=('7a8ed4cae249215e2304643f1916805d793459bd49ee99ae3e5ee1bac1f9bc29')
 
 build() {
     export CXXFLAGS="${CXXFLAGS} -ffile-prefix-map=${srcdir}=."
