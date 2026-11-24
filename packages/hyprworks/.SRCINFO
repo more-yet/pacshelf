@@ -1,7 +1,7 @@
 pkgbase = hyprworks
 	pkgdesc = Lua desktop shell toolkit for Hyprland
-	pkgver = 0.4.0
-	pkgrel = 3
+	pkgver = 0.4.1
+	pkgrel = 1
 	url = https://github.com/more-yet/hyprworks
 	arch = x86_64
 	license = MIT
@@ -32,7 +32,7 @@ pkgbase = hyprworks
 	optdepends = upower: power and battery information
 	optdepends = xdg-desktop-portal: ScreenCast portal integration
 	options = !debug
-	source = hyprworks-0.4.0.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.4.0.tar.gz
-	sha256sums = 27e186c05e13a13c6d72705a8bf237b5a22e22e583fc989514429f31eff731e0
+	source = hyprworks-0.4.1.tar.gz::https://github.com/more-yet/hyprworks/archive/refs/tags/v0.4.1.tar.gz
+	sha256sums = 6d93d41365ad9523dbc36edf1adc23cad21d19ef4a870cd4e880d42acf36b9d3
 
 pkgname = hyprworks

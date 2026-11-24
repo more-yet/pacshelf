@@ -1,6 +1,6 @@
 pkgname=hyprworks
-pkgver=0.4.0
-pkgrel=3
+pkgver=0.4.1
+pkgrel=1
 
 pkgdesc='Lua desktop shell toolkit for Hyprland'
 arch=('x86_64')
@@ -45,7 +45,7 @@ source=(
     "hyprworks-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz"
 )
 
-sha256sums=('27e186c05e13a13c6d72705a8bf237b5a22e22e583fc989514429f31eff731e0')
+sha256sums=('6d93d41365ad9523dbc36edf1adc23cad21d19ef4a870cd4e880d42acf36b9d3')
 
 build() {
     export CXXFLAGS="${CXXFLAGS} -ffile-prefix-map=${srcdir}=."
