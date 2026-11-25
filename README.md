@@ -110,7 +110,7 @@ package files are immutable; changed builds need a new package release.
 | --- | --- |
 | [`aws-session-manager-plugin`](packages/aws-session-manager-plugin) | `1.2.896.0-1` |
 | [`hyprworks`](packages/hyprworks) | `0.4.1-1` |
-| [`openai-chatgpt`](packages/openai-chatgpt) | `26.1120.41243-1` |
+| [`openai-chatgpt`](packages/openai-chatgpt) | `26.1120.50957-1` |
 | [`proton-pass`](packages/proton-pass) | `1.44.1-1` |
 | [`slack`](packages/slack) | `4.53.292-1` |
 | [`vscodium`](packages/vscodium) | `1.143.17232-1` |
